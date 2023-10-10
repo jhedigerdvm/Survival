@@ -1,0 +1,59 @@
+
+model {
+
+#prior for recapture prob
+p ~ dbeta(1, 1)
+   
+
+#priors
+age.beta[1] <- 0      #need to set baseline of zero for >1 categorical covariate
+
+for (u in 2:15){     #16 age classes but 15 survival periods                        
+   age.beta[u] ~ dnorm(0,0.01)              # Priors for age-specific survival
+}
+
+int~dnorm(0,0.001)
+
+
+
+for(capyear in 1:16){
+  eps.capyear[capyear] ~ dnorm(0, tau.capyear)
+  }
+  tau.capyear <- 1/(sigma.capyear * sigma.capyear)
+  sigma.capyear ~ dunif(0,5) #random effect SD youre saying that each year-specific error term is coming
+                                # from the same distributionm i.e. same mean (0) and standard
+                                # deviation (sigma.period). The standard deviation is what connects all the
+                                # year-specific random effects to the same distribution.
+
+   
+# Likelihood 
+for (i in 1:nind){
+   # Define latent state at first capture, we know for sure the animal is alive
+   z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):n.occasions){ #could put 15 for number of occasions, f[i]+1 because we condition on the first capture
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <- int + age.beta[ageclass[i,t-1]] + eps.capyear[capyear[t-1]]
+
+        # Observation process
+            CH[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+      } #t
+   } #i
+
+#derived parameter
+  for (j in 1:15){ #age class
+    survival[j] <- exp(int + age.beta*j )/ (1 + exp(int + age.beta*j))
+  }                     #delta method to convert from logit back to probability Powell et al. 2007
+
+# # # # for (i in 2:3){
+# # #   site_diff[i] <- site.beta[1] - site.beta[i]
+# # # }
+
+
+  
+
+}
+

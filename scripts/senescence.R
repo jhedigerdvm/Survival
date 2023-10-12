@@ -1,3 +1,6 @@
+usethis::use_git()
+usethis::use_github()
+
 #survival model looking at senescence 
 
 library(jagsUI)

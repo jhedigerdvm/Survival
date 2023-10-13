@@ -156,7 +156,7 @@ p ~ dbeta(1, 1)
 #priors
 age.beta[1] <- 0
 # site.beta[1] <- 0
-# eps.capyear[1] <- 0
+eps.capyear[1] <- 0
 # eps.id[1] <- 0
 
 int ~ dnorm(0, 0.001)
@@ -164,14 +164,14 @@ int ~ dnorm(0, 0.001)
 for (u in 2:14){     #15 age classes but 14 survival periods                        
    age.beta[u] ~ dnorm(0,0.01)              # Priors for age-specific survival
 }
-# 
-# for (u in 2:15){      #capyear
-#   eps.capyear[u] ~ dnorm(0, tau.capyear)
-# }
-# 
-#   sigma ~ dunif(0,10) #standard dev
-#   tau.capyear <- 1/(sigma*sigma) #precision = 1/variance
-# 
+
+for (u in 2:15){      #capyear
+  eps.capyear[u] ~ dnorm(0, tau.capyear)
+}
+
+  sigma ~ dunif(0,10) #standard dev
+  tau.capyear <- 1/(sigma*sigma) #precision = 1/variance
+
 # for (u in 2:691){ #animal_id
 #   eps.id[u] ~ dnorm(0, tau.id)
 # }
@@ -186,7 +186,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + age.beta[ageclass[i,t-1]] #+ eps.capyear[capyear[t-1]] + eps.id[id[i]]
+            logit(phi[i,t-1]) <- int + age.beta[ageclass[i,t-1]] + eps.capyear[capyear[t-1]] #+ eps.id[id[i]]
         # Observation process
             CH[i,t] ~ dbern(mu2[i,t])
             mu2[i,t] <- p * z[i,t]
@@ -199,7 +199,9 @@ for (i in 1:nind){
       survival[j] <- exp(int+ age.beta[j] )/ (1 + exp(int+ age.beta[j]))
     }                     #delta method to convert from logit back to probability Powell et al. 2007
   
-
+    for (j in 1:11){
+      surv_diff[j] <- survival[j] - survival[6]
+    }
 
 }
 ",fill = TRUE)
@@ -216,13 +218,13 @@ for(i in 1:dim(z.init)[1]){
 
 
 # Bundle data
-jags.data <- list(h = h, CH = CH, f = f, nind = nrow(CH),  ageclass = ageclass)#, capyear = capyear, id = id
+jags.data <- list(h = h, CH = CH, f = f, nind = nrow(CH),  ageclass = ageclass, capyear = capyear)#, , id = id
 
 # Initial values
-inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, age.beta = c(NA, rnorm(13,0,1))
-                          )} #sigma = runif(1,0,10)eps.capyear = c(NA, rnorm(14,0,1)),, eps.id = c(NA, rnorm(690, 0, 1)
+inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, age.beta = c(NA, rnorm(13,0,1)),
+                          sigma = runif(1,0,10), eps.capyear = c(NA, rnorm(14,0,1)))} #,, eps.id = c(NA, rnorm(690, 0, 1)
 
-parameters <- c('int', 'age.beta', 'p', 'survival')
+parameters <- c('int', 'age.beta', 'p', 'survival', 'surv_diff')
 # 'survival', 'site_diff' 'survival',, 'site_diff','eps.capyear' 'int','site.beta',
 
 # MCMC settings

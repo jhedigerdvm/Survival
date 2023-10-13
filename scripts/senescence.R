@@ -73,25 +73,70 @@ f #could use this to evaluate cohort effects by year
 #rework h to only include capture myopathy or harvest, do not censor natural mortality 
 get.last<- function(x) min(which(x>1))
 h <- apply(known.fate,1,get.last)
-h <- replace(h, is.infinite(h), 16)
+h <- replace(h, is.infinite(h), 15)
 h
 f-h #make sure there are no first and last capture occasions that overlap
 
-# # Assuming you have two matrices named matrix1 and matrix2
-# # # Subtract matrix2 from matrix1
-# result_matrix <- f - h
+# Assuming you have two matrices named matrix1 and matrix2
+# # Subtract matrix2 from matrix1
+result_matrix <- f - h
+
+# Create a logical matrix indicating where result_matrix is zero
+zero_indices <- result_matrix == 0
+
+# Use the logical matrix to subset matrix1 (or matrix2, they should be equivalent)
+f <- f[!zero_indices]
+h<-h[!zero_indices]
+
+data1<-cbind(zero_indices, data)
+data1<- data1 %>% filter(data1$zero_indices=='FALSE')
+data<-data1
+CH <- data[,-c(1:4)]
+CH<-as.matrix(CH) # this will become y (i.e. our observations)
 # 
-# # Create a logical matrix indicating where result_matrix is zero
-# zero_indices <- result_matrix == 0
-# 
-# # Use the logical matrix to subset matrix1 (or matrix2, they should be equivalent)
-# f <- f[!zero_indices]
-# h<-h[!zero_indices]
-# f-h
-# data1<-cbind(zero_indices, data)
-# data1<- data1 %>% filter(data1$zero_indices=='FALSE')
-# data<-data1
-# CH <- data[,-c(1:4)]
+# known.fate<-data  #known deaths marked with 2
+# known.fate <- known.fate[, -c(1:3)]
+# known.fate<-as.matrix(known.fate) 
+
+#create capture history with just 1s and 0s
+indices <- which(CH == 2, arr.ind = TRUE)
+CH[indices] <- 1 #replaces all 2s with a 1
+
+#create a vector with 1 for treatment, 2 for control, 3 for tgt
+bs<- as.numeric(factor(data$bs))
+unique(bs) 
+
+id <- as.numeric(factor(data$animal_id))
+
+#make age matrix, age class 1 is a 1.5 year old, age class 2 is a 2.5 year old 
+ageclass<-data[,-c(1,2,4)]
+for (i in 1:dim(ageclass)[1]){
+  ageclass[i,2] <- 2007 - data$birth_year[i]  +1
+  ageclass[i,3] <- 2007 - data$birth_year[i]  +2
+  ageclass[i,4] <- 2007 - data$birth_year[i]  +3
+  ageclass[i,5] <- 2007 - data$birth_year[i]  +4
+  ageclass[i,6] <- 2007 - data$birth_year[i] +5
+  ageclass[i,7] <- 2007 - data$birth_year[i] +6
+  ageclass[i,8] <- 2007 - data$birth_year[i] +7
+  ageclass[i,9] <- 2007 - data$birth_year[i] +8
+  ageclass[i,10] <- 2007 - data$birth_year[i] +9
+  ageclass[i,11] <- 2007 - data$birth_year[i] +10
+  ageclass[i,12] <- 2007 - data$birth_year[i] +11
+  ageclass[i,13] <- 2007 - data$birth_year[i] +12
+  ageclass[i,14] <- 2007 - data$birth_year[i] +13
+  ageclass[i,15] <- 2007 - data$birth_year[i] +14
+  ageclass[i,16] <- 2007 - data$birth_year[i] +15
+  # ageclass[i,17] <- 2007 - data$birth_year[i] +16
+  
+}
+
+ageclass<- ageclass[,-c(1)]
+
+#Make any zeros or negatives NA
+ageclass[ageclass<=0] <- NA
+ageclass<-as.matrix(ageclass) 
+
+f-h #make sure there are no first and last capture occasions that overlap
 
 #create capture year vector
 #make age matrix with 1 as fawn, 2 as immature, 3 as mature
@@ -100,7 +145,7 @@ capyear
 
 
 # Specify model in JAGS language
-sink("cjs-age-site.jags")
+sink("cjs-senescence.jags")
 cat("
 model {
 
@@ -111,26 +156,26 @@ p ~ dbeta(1, 1)
 #priors
 age.beta[1] <- 0
 # site.beta[1] <- 0
-eps.capyear[1] <- 0
-eps.id[1] <- 0
+# eps.capyear[1] <- 0
+# eps.id[1] <- 0
 
 int ~ dnorm(0, 0.001)
 
-for (u in 2:15){     #16 age classes but 15 survival periods                        
+for (u in 2:14){     #15 age classes but 14 survival periods                        
    age.beta[u] ~ dnorm(0,0.01)              # Priors for age-specific survival
 }
-
-for (u in 2:15){      #capyear
-  eps.capyear[u] ~ dnorm(0, tau.capyear)
-}
-
-  sigma ~ dunif(0,10) #standard dev
-  tau.capyear <- 1/(sigma*sigma) #precision = 1/variance
-
-for (u in 2:691){ #animal_id
-  eps.id[u] ~ dnorm(0, tau.id)
-}
-  tau.id <-1/(sigma*sigma)
+# 
+# for (u in 2:15){      #capyear
+#   eps.capyear[u] ~ dnorm(0, tau.capyear)
+# }
+# 
+#   sigma ~ dunif(0,10) #standard dev
+#   tau.capyear <- 1/(sigma*sigma) #precision = 1/variance
+# 
+# for (u in 2:691){ #animal_id
+#   eps.id[u] ~ dnorm(0, tau.id)
+# }
+#   tau.id <-1/(sigma*sigma)
 
 # Likelihood 
 for (i in 1:nind){
@@ -141,7 +186,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + age.beta[ageclass[i,t-1]] + eps.capyear[capyear[t-1]] + eps.id[id[i]]
+            logit(phi[i,t-1]) <- int + age.beta[ageclass[i,t-1]] #+ eps.capyear[capyear[t-1]] + eps.id[id[i]]
         # Observation process
             CH[i,t] ~ dbern(mu2[i,t])
             mu2[i,t] <- p * z[i,t]
@@ -171,23 +216,23 @@ for(i in 1:dim(z.init)[1]){
 
 
 # Bundle data
-jags.data <- list(h = h, CH = CH, f = f, nind = nrow(CH),  ageclass = ageclass, capyear = capyear, id = id)#, 
+jags.data <- list(h = h, CH = CH, f = f, nind = nrow(CH),  ageclass = ageclass)#, capyear = capyear, id = id
 
 # Initial values
-inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, age.beta = c(NA, rnorm(14,0,1)),
-                         eps.capyear = c(NA, rnorm(14,0,1)), sigma = runif(1,0,10), eps.id = c(NA, rnorm(690, 0, 1)))} #
+inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, age.beta = c(NA, rnorm(13,0,1)),
+                          sigma = runif(1,0,10))} #eps.capyear = c(NA, rnorm(14,0,1)),, eps.id = c(NA, rnorm(690, 0, 1)
 
 parameters <- c('int', 'age.beta', 'p', 'survival')
 # 'survival', 'site_diff' 'survival',, 'site_diff','eps.capyear' 'int','site.beta',
 
 # MCMC settings
 ni <- 3000
-nt <- 10
+nt <- 0
 nb <- 1000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
-cjs.age.site <- jagsUI(jags.data, inits, parameters, "cjs-age-site.jags", n.chains = nc, 
+cjs.age.site <- jagsUI(jags.data, inits, parameters, "cjs-senescence.jags", n.chains = nc, 
                        n.thin = nt, n.iter = ni, n.burnin = nb, parallel = FALSE)
 MCMCtrace(cjs.age.site)
 print(cjs.age.site)

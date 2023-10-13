@@ -72,3 +72,11 @@ for (i in 1:nrow(data3)) {
 }
 
 write.csv(data3,'./cleaned/capture_cleaned.csv', row.names = F)
+
+#remove 0.5 year age class from analysis
+data4<- subset(data3, age != 0)
+
+write.csv(data4,'./cleaned/capture_cleaned_nofawns.csv',row.names = F)
+
+data5<-data4 %>% pivot_wider(names_from = cap_year, values_from = status, values_fill = 0, id_cols = animal_id)#
+

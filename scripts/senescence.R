@@ -229,7 +229,7 @@ jags.data <- list(h = h, CH = CH, f = f, nind = nrow(CH),  ageclass = ageclass, 
 # Initial values
 inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, age.beta = c(NA, rnorm(13,0,1)),
                           sigma = runif(1,0,10), eps.capyear = c(NA, rnorm(14,0,1)),
-                         eps.bs = c(NA, rnorm(2,0,1)), eps.id = c(NA, runif(489, 0, 100)))} #,, 
+                         eps.bs = c(NA, rnorm(2,0,1)), eps.id = c(NA, runif(489, 0, 10)))} #,, 
 
 parameters <- c('int', 'age.beta', 'p', 'survival', 'surv_diff')
 # 'survival', 'site_diff' 'survival',, 'site_diff','eps.capyear' 'int','site.beta',

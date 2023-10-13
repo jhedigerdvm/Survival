@@ -1,0 +1,73 @@
+library(here)
+library(tidyr)
+library(dplyr)
+
+#taking raw capture history data
+data<- read.csv('./raw/master_caphist.csv', header = T)
+
+#rename column names
+names(data)<- c('animal_id', 'birth_year', 'age', 'status', 'cap_year')
+
+# replace status with numbers
+data$status[data$status == 'Captured'] <- 1
+data$status[data$status == 'Nat Mortality'] <- 0 #found dead
+data$status[data$status == 'Alive-Cuddy'] <- 1  #not capture physically but seen on camera
+data$status[data$status == 'Harvested'] <- 2    #accidentally harvested
+data$status[data$status == 'Dead-Capture'] <- 2 #died during capture event
+
+#check for duplicated entries
+data$check<-duplicated(data) #check for duplicates
+#270-2010-1-019 #270-2011-1-215 #270-2019-1-909 #90-2020-0-2080
+condition<- data$check=='TRUE'
+data1<- data[!condition,]
+
+#some birthyears are wrong, code to assign birthyear based upon animal id
+#first we need to reset row names
+rownames(data1) = seq(length=nrow(data1))
+
+for (i in c(1:2034, 3609:3615)){
+  x <- substr(data1$animal_id[i], 5, 8)
+  data1$birth_year[i]<-x
+  # if (x == "1") {data$bs[i] <- "dmp"}
+}
+
+for (i in 2035:3608){
+  x <- substr(data1$animal_id[i], 4, 7)
+  data1$birth_year[i]<-x
+  # if (x == "1") {data$bs[i] <- "dmp"}
+}
+
+#ensure capture year is correct for all
+data1$birth_year<-as.numeric(data1$birth_year)
+data2<-data1
+
+#make age whole numbers, 0.5 -> 0, 1.5 -> 1
+data2$age1 <- data1$age - 0.5
+
+#to confirm capture year is correct, add age to birth year and make new col capyear1
+for(i in 1:nrow(data2)){
+  x <- data2$birth_year[i] + data2$age1[i]
+  data2$cap_year1[i]<-x
+}
+
+#check to make sure that cap_year1 and capyear are the same
+check<-data2$cap_year - data2$cap_year1
+any(check>0) #they are
+
+#remove unnecessary columns
+data3<-data2[,-c(3,8,6)]
+names(data3)[names(data3) == 'age1'] <- 'age'
+
+#add birth-site to data
+for (i in 1:nrow(data3)) {
+  x <- substr(data3$animal_id[i], 1, 1)
+  if (x == "2") {data3$bs[i] <- "wy"} else 
+  { data3$bs[i] <- "ey"}
+}
+##make a new column with discernment of DMP and pasture born
+for (i in 1:nrow(data3)) {
+  x <- substr(data3$animal_id[i], 10, 10)
+  if (x == "1") {data3$bs[i] <- "dmp"}
+}
+
+

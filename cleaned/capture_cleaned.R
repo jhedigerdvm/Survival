@@ -107,4 +107,13 @@ for (i in 1:nrow(data6)) {
   if (x == "1") {data6$bs[i] <- "dmp"}
 }
 
-write.csv(data6,'./cleaned/capture_cleaned_nofawns_wide.csv',row.names = F)
+#reorder columns to move from left to right sequentially in time
+data7<- data6[,c(1,17,18,2,3,4,5,6,7,8,10,9,11,13,12,14,15,16)]
+
+data8<-data7[,-c(1:3)]
+data8$check<-apply(data8, 1, function(r) any(r %in% c("2")))
+# 6 individuals first and last capture occasion were found
+# 131 141 151 169 204 483
+data9<- data7[-c(131,141,151,169,204,483),]#removing individuals whose first and last capture occasions were the same
+
+write.csv(data9,'./cleaned/capture_cleaned_nofawns_wide.csv', row.names = F)

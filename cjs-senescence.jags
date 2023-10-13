@@ -31,9 +31,9 @@ for (u in 2:3){ #birth site
   tau.bs <- 1/(sigma*sigma)
 
 for (u in 2:490){ #animal_id
-  eps.id[u] ~ dnorm(0, tau.id)
+  eps.id[u] ~ dunif(0, 10)
 }
-  tau.id <-1/(sigma*sigma)
+  # tau.id <-1/(sigma*sigma)
 
 # Likelihood 
 for (i in 1:nind){

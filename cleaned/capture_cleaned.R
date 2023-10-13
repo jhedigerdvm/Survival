@@ -1,3 +1,4 @@
+#code to clean master data
 library(here)
 library(tidyr)
 library(dplyr)
@@ -70,4 +71,4 @@ for (i in 1:nrow(data3)) {
   if (x == "1") {data3$bs[i] <- "dmp"}
 }
 
-
+write.csv(data3,'./cleaned/capture_cleaned.csv', row.names = F)

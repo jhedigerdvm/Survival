@@ -78,5 +78,33 @@ data4<- subset(data3, age != 0)
 
 write.csv(data4,'./cleaned/capture_cleaned_nofawns.csv',row.names = F)
 
-data5<-data4 %>% pivot_wider(names_from = cap_year, values_from = status, values_fill = 0, id_cols = animal_id)#
+#prepare to put data4 into wide format
+data5<-data4[,-c(2,5,6)]
+data5$cap_year<-as.character(data5$cap_year)
+data6<-data4 %>% pivot_wider(names_from = cap_year, values_from = status, values_fill = '0', id_cols = animal_id)#
 
+
+#some birthyears are wrong, code to assign birthyear based upon animal id
+for (i in c(1:285)){
+  x <- substr(data6$animal_id[i], 5, 8)
+  data6$birth_year[i]<-x
+}
+
+for (i in 286:512){
+  x <- substr(data6$animal_id[i], 4, 7)
+  data6$birth_year[i]<-x
+}
+
+#add birth-site to data
+for (i in 1:nrow(data6)) {
+  x <- substr(data6$animal_id[i], 1, 1)
+  if (x == "2") {data6$bs[i] <- "wy"} else 
+  { data6$bs[i] <- "ey"}
+}
+##make a new column with discernment of DMP and pasture born
+for (i in 1:nrow(data6)) {
+  x <- substr(data6$animal_id[i], 10, 10)
+  if (x == "1") {data6$bs[i] <- "dmp"}
+}
+
+write.csv(data6,'./cleaned/capture_cleaned_nofawns_wide.csv',row.names = F)

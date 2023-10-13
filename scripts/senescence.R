@@ -235,9 +235,9 @@ parameters <- c('int', 'age.beta', 'p', 'survival', 'surv_diff')
 # 'survival', 'site_diff' 'survival',, 'site_diff','eps.capyear' 'int','site.beta',
 
 # MCMC settings
-ni <- 10000
+ni <- 15000
 nt <- 1
-nb <- 5000
+nb <- 10000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)

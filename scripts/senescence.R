@@ -6,142 +6,142 @@ library(MCMCvis)
 library(tidybayes)
 library(here)
 
-
-
-#load data 
-data<-read.csv('./cleaned/capture_cleaned_nofawns_wide.csv', header = T)
-
-#rename column names to year
-data<-data %>% rename('2008' = X2008, '2009' = X2009, '2010' = X2010, '2011' = X2011, '2012' = X2012, 
-                      '2013' = X2013, '2014' = X2014, '2015' = X2015, '2016' = X2016, '2017' = X2017, 
-                      '2018' = X2018, '2019' = X2019, '2020' = X2020, '2021' = X2021, '2022' = X2022)
-
-CH<-data
-CH<- CH[,-c(1:3)] #removing animal id, birth site, and birth year
-CH<-as.matrix(CH) # this will become y (i.e. our observations)
-
-
-known.fate<-data  #known deaths marked with 2
-known.fate <- known.fate[, -c(1:3)]
-known.fate<-as.matrix(known.fate) 
-
-#create capture history with just 1s and 0s
-indices <- which(CH == 2, arr.ind = TRUE)
-CH[indices] <- 1 #replaces all 2s with a 1
-
-#create a vector with 1 for treatment, 2 for control, 3 for tgt
-bs<- as.numeric(factor(data$bs))
-unique(bs) 
-
-id <- as.numeric(factor(data$animal_id))
-
-#make age matrix, age class 1 is a 1.5 year old, age class 2 is a 2.5 year old 
-ageclass<-data[,-c(1,3)]
-for (i in 1:dim(ageclass)[1]){
-  ageclass[i,2] <- 2007 - data$birth_year[i]  +1
-  ageclass[i,3] <- 2007 - data$birth_year[i]  +2
-  ageclass[i,4] <- 2007 - data$birth_year[i]  +3
-  ageclass[i,5] <- 2007 - data$birth_year[i]  +4
-  ageclass[i,6] <- 2007 - data$birth_year[i] +5
-  ageclass[i,7] <- 2007 - data$birth_year[i] +6
-  ageclass[i,8] <- 2007 - data$birth_year[i] +7
-  ageclass[i,9] <- 2007 - data$birth_year[i] +8
-  ageclass[i,10] <- 2007 - data$birth_year[i] +9
-  ageclass[i,11] <- 2007 - data$birth_year[i] +10
-  ageclass[i,12] <- 2007 - data$birth_year[i] +11
-  ageclass[i,13] <- 2007 - data$birth_year[i] +12
-  ageclass[i,14] <- 2007 - data$birth_year[i] +13
-  ageclass[i,15] <- 2007 - data$birth_year[i] +14
-  ageclass[i,16] <- 2007 - data$birth_year[i] +15
-  # ageclass[i,17] <- 2007 - data$birth_year[i] +16
-  
-  }
-
-ageclass<- ageclass[,-c(1)]
-
-#Make any zeros or negatives NA
-ageclass[ageclass<=0] <- NA
-ageclass<-as.matrix(ageclass) 
-
-# Create vector with the occasion each indiv is marked, this gets weird because we know each individual was caught
-#at birth, but we are starting at the second capture occasion
-get.first <- function(x) min(which(x!=0))
-f <- apply(ageclass, 1, get.first) 
-f #could use this to evaluate cohort effects by year
-
-#create vector with last occasion for each individual, marked by 2, 15 for end of study 
-#rework h to only include capture myopathy or harvest, do not censor natural mortality 
-get.last<- function(x) min(which(x>1))
-h <- apply(known.fate,1,get.last)
-h <- replace(h, is.infinite(h), 15)
-h
-f-h #make sure there are no first and last capture occasions that overlap
-
-# Assuming you have two matrices named matrix1 and matrix2
-# # Subtract matrix2 from matrix1
-result_matrix <- f - h
-
-# Create a logical matrix indicating where result_matrix is zero
-zero_indices <- result_matrix == 0
-
-# Use the logical matrix to subset matrix1 (or matrix2, they should be equivalent)
-f <- f[!zero_indices]
-h<-h[!zero_indices]
-
-data1<-cbind(zero_indices, data)
-data1<- data1 %>% filter(data1$zero_indices=='FALSE')
-data<-data1
-CH <- data[,-c(1:4)]
-CH<-as.matrix(CH) # this will become y (i.e. our observations)
+# 
+# 
+# #load data 
+# data<-read.csv('./cleaned/capture_cleaned_nofawns_wide.csv', header = T)
+# 
+# #rename column names to year
+# data<-data %>% rename('2008' = X2008, '2009' = X2009, '2010' = X2010, '2011' = X2011, '2012' = X2012, 
+#                       '2013' = X2013, '2014' = X2014, '2015' = X2015, '2016' = X2016, '2017' = X2017, 
+#                       '2018' = X2018, '2019' = X2019, '2020' = X2020, '2021' = X2021, '2022' = X2022)
+# 
+# CH<-data
+# CH<- CH[,-c(1:3)] #removing animal id, birth site, and birth year
+# CH<-as.matrix(CH) # this will become y (i.e. our observations)
+# 
 # 
 # known.fate<-data  #known deaths marked with 2
 # known.fate <- known.fate[, -c(1:3)]
 # known.fate<-as.matrix(known.fate) 
-
-#create capture history with just 1s and 0s
-indices <- which(CH == 2, arr.ind = TRUE)
-CH[indices] <- 1 #replaces all 2s with a 1
-
-#create a vector with 1 for treatment, 2 for control, 3 for tgt
-bs<- as.numeric(factor(data$bs))
-unique(bs) 
-
-id <- as.numeric(factor(data$animal_id))
-
-#make age matrix, age class 1 is a 1.5 year old, age class 2 is a 2.5 year old 
-ageclass<-data[,-c(1,2,4)]
-for (i in 1:dim(ageclass)[1]){
-  ageclass[i,2] <- 2007 - data$birth_year[i]  +1
-  ageclass[i,3] <- 2007 - data$birth_year[i]  +2
-  ageclass[i,4] <- 2007 - data$birth_year[i]  +3
-  ageclass[i,5] <- 2007 - data$birth_year[i]  +4
-  ageclass[i,6] <- 2007 - data$birth_year[i] +5
-  ageclass[i,7] <- 2007 - data$birth_year[i] +6
-  ageclass[i,8] <- 2007 - data$birth_year[i] +7
-  ageclass[i,9] <- 2007 - data$birth_year[i] +8
-  ageclass[i,10] <- 2007 - data$birth_year[i] +9
-  ageclass[i,11] <- 2007 - data$birth_year[i] +10
-  ageclass[i,12] <- 2007 - data$birth_year[i] +11
-  ageclass[i,13] <- 2007 - data$birth_year[i] +12
-  ageclass[i,14] <- 2007 - data$birth_year[i] +13
-  ageclass[i,15] <- 2007 - data$birth_year[i] +14
-  ageclass[i,16] <- 2007 - data$birth_year[i] +15
-  # ageclass[i,17] <- 2007 - data$birth_year[i] +16
-  
-}
-
-ageclass<- ageclass[,-c(1)]
-
-#Make any zeros or negatives NA
-ageclass[ageclass<=0] <- NA
-ageclass<-as.matrix(ageclass) 
-
-f-h #make sure there are no first and last capture occasions that overlap
-
-#create capture year vector
-#make age matrix with 1 as fawn, 2 as immature, 3 as mature
-capyear<-f
-capyear
+# 
+# #create capture history with just 1s and 0s
+# indices <- which(CH == 2, arr.ind = TRUE)
+# CH[indices] <- 1 #replaces all 2s with a 1
+# 
+# #create a vector with 1 for treatment, 2 for control, 3 for tgt
+# bs<- as.numeric(factor(data$bs))
+# unique(bs) 
+# 
+# id <- as.numeric(factor(data$animal_id))
+# 
+# #make age matrix, age class 1 is a 1.5 year old, age class 2 is a 2.5 year old 
+# ageclass<-data[,-c(1,3)]
+# for (i in 1:dim(ageclass)[1]){
+#   ageclass[i,2] <- 2007 - data$birth_year[i]  +1
+#   ageclass[i,3] <- 2007 - data$birth_year[i]  +2
+#   ageclass[i,4] <- 2007 - data$birth_year[i]  +3
+#   ageclass[i,5] <- 2007 - data$birth_year[i]  +4
+#   ageclass[i,6] <- 2007 - data$birth_year[i] +5
+#   ageclass[i,7] <- 2007 - data$birth_year[i] +6
+#   ageclass[i,8] <- 2007 - data$birth_year[i] +7
+#   ageclass[i,9] <- 2007 - data$birth_year[i] +8
+#   ageclass[i,10] <- 2007 - data$birth_year[i] +9
+#   ageclass[i,11] <- 2007 - data$birth_year[i] +10
+#   ageclass[i,12] <- 2007 - data$birth_year[i] +11
+#   ageclass[i,13] <- 2007 - data$birth_year[i] +12
+#   ageclass[i,14] <- 2007 - data$birth_year[i] +13
+#   ageclass[i,15] <- 2007 - data$birth_year[i] +14
+#   ageclass[i,16] <- 2007 - data$birth_year[i] +15
+#   # ageclass[i,17] <- 2007 - data$birth_year[i] +16
+#   
+#   }
+# 
+# ageclass<- ageclass[,-c(1)]
+# 
+# #Make any zeros or negatives NA
+# ageclass[ageclass<=0] <- NA
+# ageclass<-as.matrix(ageclass) 
+# 
+# # Create vector with the occasion each indiv is marked, this gets weird because we know each individual was caught
+# #at birth, but we are starting at the second capture occasion
+# get.first <- function(x) min(which(x!=0))
+# f <- apply(ageclass, 1, get.first) 
+# f #could use this to evaluate cohort effects by year
+# 
+# #create vector with last occasion for each individual, marked by 2, 15 for end of study 
+# #rework h to only include capture myopathy or harvest, do not censor natural mortality 
+# get.last<- function(x) min(which(x>1))
+# h <- apply(known.fate,1,get.last)
+# h <- replace(h, is.infinite(h), 15)
+# h
+# f-h #make sure there are no first and last capture occasions that overlap
+# 
+# # Assuming you have two matrices named matrix1 and matrix2
+# # # Subtract matrix2 from matrix1
+# result_matrix <- f - h
+# 
+# # Create a logical matrix indicating where result_matrix is zero
+# zero_indices <- result_matrix == 0
+# 
+# # Use the logical matrix to subset matrix1 (or matrix2, they should be equivalent)
+# f <- f[!zero_indices]
+# h<-h[!zero_indices]
+# 
+# data1<-cbind(zero_indices, data)
+# data1<- data1 %>% filter(data1$zero_indices=='FALSE')
+# data<-data1
+# CH <- data[,-c(1:4)]
+# CH<-as.matrix(CH) # this will become y (i.e. our observations)
+# # 
+# # known.fate<-data  #known deaths marked with 2
+# # known.fate <- known.fate[, -c(1:3)]
+# # known.fate<-as.matrix(known.fate) 
+# 
+# #create capture history with just 1s and 0s
+# indices <- which(CH == 2, arr.ind = TRUE)
+# CH[indices] <- 1 #replaces all 2s with a 1
+# 
+# #create a vector with 1 for treatment, 2 for control, 3 for tgt
+# bs<- as.numeric(factor(data$bs))
+# unique(bs) 
+# 
+# id <- as.numeric(factor(data$animal_id))
+# 
+# #make age matrix, age class 1 is a 1.5 year old, age class 2 is a 2.5 year old 
+# ageclass<-data[,-c(1,2,4)]
+# for (i in 1:dim(ageclass)[1]){
+#   ageclass[i,2] <- 2007 - data$birth_year[i]  +1
+#   ageclass[i,3] <- 2007 - data$birth_year[i]  +2
+#   ageclass[i,4] <- 2007 - data$birth_year[i]  +3
+#   ageclass[i,5] <- 2007 - data$birth_year[i]  +4
+#   ageclass[i,6] <- 2007 - data$birth_year[i] +5
+#   ageclass[i,7] <- 2007 - data$birth_year[i] +6
+#   ageclass[i,8] <- 2007 - data$birth_year[i] +7
+#   ageclass[i,9] <- 2007 - data$birth_year[i] +8
+#   ageclass[i,10] <- 2007 - data$birth_year[i] +9
+#   ageclass[i,11] <- 2007 - data$birth_year[i] +10
+#   ageclass[i,12] <- 2007 - data$birth_year[i] +11
+#   ageclass[i,13] <- 2007 - data$birth_year[i] +12
+#   ageclass[i,14] <- 2007 - data$birth_year[i] +13
+#   ageclass[i,15] <- 2007 - data$birth_year[i] +14
+#   ageclass[i,16] <- 2007 - data$birth_year[i] +15
+#   # ageclass[i,17] <- 2007 - data$birth_year[i] +16
+#   
+# }
+# 
+# ageclass<- ageclass[,-c(1)]
+# 
+# #Make any zeros or negatives NA
+# ageclass[ageclass<=0] <- NA
+# ageclass<-as.matrix(ageclass) 
+# 
+# f-h #make sure there are no first and last capture occasions that overlap
+# 
+# #create capture year vector
+# #make age matrix with 1 as fawn, 2 as immature, 3 as mature
+# capyear<-f
+# capyear
 
 
 # Specify model in JAGS language
@@ -219,23 +219,24 @@ for(i in 1:dim(z.init)[1]){
 jags.data <- list(h = h, CH = CH, f = f, nind = nrow(CH),  ageclass = ageclass)#, capyear = capyear, id = id
 
 # Initial values
-inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, age.beta = c(NA, rnorm(13,0,1)),
-                          sigma = runif(1,0,10))} #eps.capyear = c(NA, rnorm(14,0,1)),, eps.id = c(NA, rnorm(690, 0, 1)
+inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, age.beta = c(NA, rnorm(13,0,1))
+                          )} #sigma = runif(1,0,10)eps.capyear = c(NA, rnorm(14,0,1)),, eps.id = c(NA, rnorm(690, 0, 1)
 
 parameters <- c('int', 'age.beta', 'p', 'survival')
 # 'survival', 'site_diff' 'survival',, 'site_diff','eps.capyear' 'int','site.beta',
 
 # MCMC settings
 ni <- 3000
-nt <- 0
+nt <- 1
 nb <- 1000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
-cjs.age.site <- jagsUI(jags.data, inits, parameters, "cjs-senescence.jags", n.chains = nc, 
+cjs.senescence <- jagsUI(jags.data, inits, parameters, "cjs-senescence.jags", n.chains = nc, 
                        n.thin = nt, n.iter = ni, n.burnin = nb, parallel = FALSE)
-MCMCtrace(cjs.age.site)
-print(cjs.age.site)
+MCMCtrace(cjs.senescence)
+print(cjs.senescence)
+
 # 
 # summary<- cjs.age.site$summary
 # write.csv(summary,'surv_output_site_age_capyear.csv')

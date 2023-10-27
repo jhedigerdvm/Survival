@@ -43,3 +43,13 @@ oct <- data1 %>%
   filter(Month %in% c('Oct'))
 #group by year to sum march april and may rainfall
 total.oct<- oct %>% group_by(Year,site)
+total.oct <- rename(total.oct, sum.oct = rain)
+
+rainfall<- total.jun.jul.aug
+rainfall$sum.march.apr.may <- total.march.apr.may$sum.march.apr.may
+rainfall$sum.sept.oct <- total.sept.oct$sum.sept.oct
+rainfall$oct <- total.oct$sum.oct
+rainfall$annual<- totalrain$total.rain
+rainfall <- rainfall[,-4]
+
+write.csv(rainfall, './cleaned/rainfall_clean.csv', row.names = F)

@@ -117,3 +117,19 @@ data8$check<-apply(data8, 1, function(r) any(r %in% c("2")))
 data9<- data7[-c(131,141,151,169,204,483),]#removing individuals whose first and last capture occasions were the same
 
 write.csv(data9,'./cleaned/capture_cleaned_nofawns_wide.csv', row.names = F)
+
+#attempt to take wide format and put back into long format
+data_wide<- read.csv('./cleaned/capture_cleaned_nofawns_wide.csv', header = T)
+data_long <- data_wide %>%  pivot_longer(cols = -c(animal_id, birth_year, bs),
+                                         names_to = 'year', values_to = 'status')
+#remove prefix x from 'year'
+data_long<- data_long %>% mutate(year = substr(year,2,5))
+
+#add rainfall to data long
+rainfall<- read.csv('./cleaned/rainfall_clean.csv', header = T) #manually added rows for 'dmp' in csv
+rainfall$Year<- as.character(rainfall$Year)
+data_long1<- left_join(data_long,rainfall, by = c('year' = 'Year',
+                                                  'bs' = 'site' )) #no 2022 rain data
+write.csv(data_long1, './cleaned/caphx.rainfall.long.csv', row.names = F)
+                    
+

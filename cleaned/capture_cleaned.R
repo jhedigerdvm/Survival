@@ -122,14 +122,26 @@ write.csv(data9,'./cleaned/capture_cleaned_nofawns_wide.csv', row.names = F)
 data_wide<- read.csv('./cleaned/capture_cleaned_nofawns_wide.csv', header = T)
 data_long <- data_wide %>%  pivot_longer(cols = -c(animal_id, birth_year, bs),
                                          names_to = 'year', values_to = 'status')
+
 #remove prefix x from 'year'
 data_long<- data_long %>% mutate(year = substr(year,2,5))
+data_long$year <-as.integer(data_long$year)
+
+#add age class 
+data_long$ageclass<- 0
+
+  for (i in 1:nrow(data_long)){
+    data_long$ageclass[i]<- data_long$year[i] - data_long$birth_year[i]
+  }
+
+data_long$ageclass[data_long$ageclass<=0] <- NA #remove any ages that are less than 0
 
 #add rainfall to data long
 rainfall<- read.csv('./cleaned/rainfall_clean.csv', header = T) #manually added rows for 'dmp' in csv
-rainfall$Year<- as.character(rainfall$Year)
 data_long1<- left_join(data_long,rainfall, by = c('year' = 'Year',
                                                   'bs' = 'site' )) #no 2022 rain data
+
 write.csv(data_long1, './cleaned/caphx.rainfall.long.csv', row.names = F)
                     
+
 

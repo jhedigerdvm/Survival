@@ -9,9 +9,9 @@ library(here)
 data<- read.csv('./cleaned/caphx.rainfall.long.csv', header = T)
 
 
-ch <- data$status #create vector with capture histories 
+ch <- matrix(data$status,nrow = 506, ncol = 15) #may need to create a matrix of CH instead of a vector 
 
-known.fate <- data$status #known fate vector with 2 indentifying deaths associated with capture or harvest
+known.fate <- ch #known fate matrix with 2 indentifying deaths associated with capture or harvest
 
 #create capture history with just 1s and 0s, remove 'known fates'
 indices <- which(ch == 2, arr.ind = TRUE) #34 individuals with known fates 

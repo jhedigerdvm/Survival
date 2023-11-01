@@ -92,6 +92,11 @@ for (u in 2:3){
 rain.beta ~ dnorm(0,0.01)
 
 
+rain.site.beta[1] <-0
+
+for (u in 2:3){
+  rain.site.beta[u] ~ dnorm(0,0.01)
+}
 
 # Likelihood 
 for (i in 1:nind){
@@ -102,7 +107,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + rain.beta*rain[i,t-1]  
+            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + rain.beta*rain[i,t-1]  + rain.site.beta[bs[i]]*rain[i,t-1]
               #error is 'invalid vector arg for ilogit', link functions cannot be vectorized 
               #is my issue because rain is a matrix?
           
@@ -132,9 +137,10 @@ jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs, rain = annua
 
 # Initial values
 inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, rain.beta = rnorm(1, 0, 1),
-                                                              site.beta = c(NA, rnorm(2,0,1)))} #
+                                                              site.beta = c(NA, rnorm(2,0,1)), 
+                         rain.site.beta = c(NA, rnorm(2,0,1)))} #
 
-parameters <- c('int', 'site.beta', 'rain.beta', 'p')
+parameters <- c('int', 'site.beta', 'rain.beta', 'rain.site.beta', 'p')
 # 'survival', 'site_diff' 'survival',, 'site_diff','eps.capyear' 'int','site.beta',
 
 # MCMC settings

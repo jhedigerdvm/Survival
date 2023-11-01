@@ -8,8 +8,13 @@ library(here)
 
 data<- read.csv('./cleaned/caphx.rainfall.long.csv', header = T)
 
+ch<- pivot_wider(data, names_from = 'year', values_from = 'status', id_cols = 'animal_id' )
+ch<-ch[,-1]
+ch<-as.matrix(ch)
 
-ch <- matrix(data$status,nrow = 506, ncol = 15) #may need to create a matrix of CH instead of a vector 
+annual.rainfall<-pivot_wider(data, names_from = 'year', values_from = 'annual', id_cols = 'animal_id' )
+annual.rainfall<-annual.rainfall[,-1]
+annual.rainfall<-as.matrix(annual.rainfall)
 
 known.fate <- ch #known fate matrix with 2 indentifying deaths associated with capture or harvest
 
@@ -17,36 +22,40 @@ known.fate <- ch #known fate matrix with 2 indentifying deaths associated with c
 indices <- which(ch == 2, arr.ind = TRUE) #34 individuals with known fates 
 ch[indices] <- 1
 
-#create birthsite vector
-bs <- as.numeric(factor(data$bs)) # 1 = dmp, 2 = ey, 3 = wy
 
-#create ageclass vector
-ageclass <- data$ageclass
+# Create vector with the occasion each indiv is marked, this gets weird because we know each individual was caught
+#at birth, but we are starting at the second capture occasion
+get.first <- function(x) min(which(x!=0))
+f <- apply(ch, 1, get.first) 
+
+#create birthsite vector
+id.bs.by <- unique(data[, c("animal_id", "bs",'birth_year')])
+bs <- as.numeric(factor(id.bs.by$bs)) # 1 = dmp, 2 = ey, 3 = wy
+
+#create ageclass matrix
+ageclass<- pivot_wider(data, names_from = 'year', values_from = 'ageclass', id_cols = 'animal_id' )
+ageclass<- ageclass[,-1]
+ageclass<-as.matrix(ageclass)
 
 #create animal id vector
-id <- as.numeric(factor(data$animal_id))
+id <- as.numeric(factor(id.bs.by$animal_id))
 
 #create birth year vector
-birthyear <- as.numeric(as.factor(data$birth_year))
+birthyear <- as.numeric(as.factor(id.bs.by$birth_year))
 
 #create capture year vector
-capyear <- as.numeric(as.factor(data$year))
+capyear <- f
 
 #scale and center covariate annual rainfall
-annual.rain <- scale(data$annual)
-annual.rain<- annual.rain[,1]
-
-
-#create vector with first capture occasion which is equal to their birthyear
-f <- birthyear
-
-#create vector with last occasion for each individual, marked by 2, 15 for end of study 
-#rework h to only include capture myopathy or harvest, do not censor natural mortality 
-# get.last<- function(x) min(which(x>1))
-# h <- apply(known.fate,1,get.last)
-# h <- replace(h, is.infinite(h), 15)
-# h
-
+annual.rainfall<-scale(annual.rainfall)
+# 
+# create vector with last occasion for each individual, marked by 2, 15 for end of study
+# rework h to only include capture myopathy or harvest, do not censor natural mortality
+get.last<- function(x) min(which(x>1))
+h <- apply(known.fate,1,get.last)
+h <- replace(h, is.infinite(h), 15)
+h
+f-h
 
 # Specify model in JAGS language
 sink("cjs.jags")
@@ -62,11 +71,11 @@ phi ~ dbeta(1,1)
 
 
 # Likelihood 
-for (i in 1:7590){
+for (i in 1:nind){
    # Define latent state at first capture, we know for sure the animal is alive
       z[i,f[i]] <- 1
       
-      for (t in (f[i]+1):7590){ 
+      for (t in (f[i]+1):h[i]){ 
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2

@@ -10,11 +10,11 @@ phi ~ dbeta(1,1)
 
 
 # Likelihood 
-for (i in 1:7590){
+for (i in 1:nind){
    # Define latent state at first capture, we know for sure the animal is alive
       z[i,f[i]] <- 1
       
-      for (t in (f[i]+1):7590){ 
+      for (t in (f[i]+1):h[i]){ 
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2

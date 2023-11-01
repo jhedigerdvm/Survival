@@ -7,12 +7,22 @@ library(tidybayes)
 library(here)
 
 data<- read.csv('./cleaned/caphx.rainfall.long.csv', header = T)
+data<- data[data$birth_year != '2021',] #remove 2021 cohort
 
-ch<- pivot_wider(data, names_from = 'year', values_from = 'status', id_cols = 'animal_id' )
+#remove individuals with no capture ocassions
+data1<-
+  data %>% 
+  group_by(animal_id) %>%
+  summarise(status_sum = sum(status)) %>%
+  filter(status_sum < 1) -> to_remove
+
+data2 <- data[!data$animal_id %in% to_remove$animal_id,]
+
+ch<- pivot_wider(data2, names_from = 'year', values_from = 'status', id_cols = 'animal_id' )
 ch<-ch[,-1]
 ch<-as.matrix(ch)
 
-annual.rainfall<-pivot_wider(data, names_from = 'year', values_from = 'annual', id_cols = 'animal_id' )
+annual.rainfall<-pivot_wider(data2, names_from = 'year', values_from = 'annual', id_cols = 'animal_id' )
 annual.rainfall<-annual.rainfall[,-1]
 annual.rainfall<-as.matrix(annual.rainfall)
 
@@ -29,11 +39,11 @@ get.first <- function(x) min(which(x!=0))
 f <- apply(ch, 1, get.first) 
 
 #create birthsite vector
-id.bs.by <- unique(data[, c("animal_id", "bs",'birth_year')])
+id.bs.by <- unique(data2[, c("animal_id", "bs",'birth_year')])
 bs <- as.numeric(factor(id.bs.by$bs)) # 1 = dmp, 2 = ey, 3 = wy
 
 #create ageclass matrix
-ageclass<- pivot_wider(data, names_from = 'year', values_from = 'ageclass', id_cols = 'animal_id' )
+ageclass<- pivot_wider(data2, names_from = 'year', values_from = 'ageclass', id_cols = 'animal_id' )
 ageclass<- ageclass[,-1]
 ageclass<-as.matrix(ageclass)
 
@@ -55,7 +65,7 @@ get.last<- function(x) min(which(x>1))
 h <- apply(known.fate,1,get.last)
 h <- replace(h, is.infinite(h), 15)
 h
-f-h
+f-h #need to remove birth year 2021 
 
 # Specify model in JAGS language
 sink("cjs.jags")
@@ -93,21 +103,21 @@ sink()
 
 
 #Function for latent state
-z.init <- matrix(NA, nrow = nrow(data), ncol = 15)
-# 
-# for(i in 1:dim(z.init)[1]){
-#   z.init[f[i]:15] <- 1
-#   z.init[f[i]] <- NA
-# }
+z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+
+for(i in 1:dim(z.init)[1]){
+  z.init[i, f[i]:h[i]] <- 1
+  z.init[i,f[i]] <- NA
+}
 
 
 # Bundle data
-jags.data <- list(ch = ch, f = f)#, 
+jags.data <- list(ch = ch, f = f, h = h, nind = nrow(ch))#, 
 
 # Initial values
 inits <- function(){list(z = z.init, phi = rbeta(1,1,1), p = rbeta(1,1,1))} #
 
-parameters <- c('phi','p')
+parameters <- c('mu1','p')
 # 'survival', 'site_diff' 'survival',, 'site_diff','eps.capyear' 'int','site.beta',
 
 # MCMC settings

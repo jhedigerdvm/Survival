@@ -79,7 +79,6 @@ p ~ dbeta(1, 1)
 #priors
 # age.beta[1] <- 0
 site.beta[1] <- 0
-rain.beta[1] <- 0
 int ~ dnorm(0, 0.001)
 
 # for (u in 2:14){     #15 age classes but 14 survival periods                        
@@ -90,9 +89,8 @@ for (u in 2:3){
   site.beta[u] ~ dnorm(0,0.01)
 }
 
-for (u in 2:489){
-  rain.beta[u] ~ dnorm(0,0.01)
-}
+rain.beta ~ dnorm(0,0.01)
+
 
 
 # Likelihood 
@@ -104,7 +102,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + rain.beta*rain[i,t]  
+            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + rain.beta*rain[i,t-1]  
               #error is 'invalid vector arg for ilogit', link functions cannot be vectorized 
               #is my issue because rain is a matrix?
           
@@ -133,7 +131,7 @@ for(i in 1:dim(z.init)[1]){
 jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs, rain = annual.rainfall)#, 
 
 # Initial values
-inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, rain.beta = c(NA, rnorm(488, 0,1)),
+inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, rain.beta = rnorm(1, 0, 1),
                                                               site.beta = c(NA, rnorm(2,0,1)))} #
 
 parameters <- c('int', 'site.beta', 'rain.beta', 'p')

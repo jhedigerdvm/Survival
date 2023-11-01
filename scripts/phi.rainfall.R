@@ -104,7 +104,9 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + rain.beta*rain[i,t]     
+            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + rain.beta*rain[i,t]  
+              #error is 'invalid vector arg for ilogit', link functions cannot be vectorized 
+              #is my issue because rain is a matrix?
           
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])

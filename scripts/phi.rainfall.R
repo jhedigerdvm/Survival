@@ -4,6 +4,7 @@ library(jagsUI)
 library(tidyverse)
 library(MCMCvis)
 library(tidybayes)
+library(mcmcr) 
 library(here)
 
 data<- read.csv('./cleaned/caphx.rainfall.long.csv', header = T)
@@ -117,7 +118,7 @@ for (i in 1:nind){
 
 #derived paramaters
   for (i in 1:3){ #site 
-      survival[i] <- exp(int+ site.beta[i] + rain.beta + rain.site.beta[i])/ 
+      survival[i] <- exp(int+ site.beta[i] + rain.beta + rain.site.beta[rain.sim])/ 
                             (1 + exp(int+ site.beta[i] + rain.beta + rain.site.beta[i]))
     }                     #delta method to convert from logit back to probability Powell et al. 2007
     
@@ -139,7 +140,7 @@ for(i in 1:dim(z.init)[1]){
 
 
 # Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs, rain = annual.rainfall)#, 
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs, rain = annual.rainfall, rain.sim = rain.sim)#, 
 
 # Initial values
 inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, rain.beta = rnorm(1, 0, 1),
@@ -163,165 +164,178 @@ print(cjs.rain.site)
 summary<- cjs.rain.site$summary
 write.csv(summary, './output/rain.bs.csv', row.names = F)
 
-#create a tibble of the posterior draws
-posterior<- tidy_draws(cjs.rain.site)
-posterior<- posterior[,c(13:15)]
+# 
+# nvalues <- 1000
+# rain.sim <- seq(from = -1.61, to = 2.52, length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data2
+# 
+# 
+# 
+# #create a tibble of the posterior draws
+# posterior<- tidy_draws(cjs.rain.site)
+# posterior<- posterior[,c(13:15)]
+# 
+# for (i in 1:3){
+#   for (j in length(rain.sim)){
+# site.beta[i] + rain.beta + rain.site.beta[i]*rain.sim[j]
+#   }
+# }
 
-#create dataframe with posteriors of just survival age1 across the three sites
-#pivot longer puts them in a tibble format
-posterior_long <- posterior %>% pivot_longer(everything())
-#make a new column 'site', rep 1:3 assigns 1 to site 1, 2 to site 2 for the number of rows divided by 3
-posterior_long$site <- rep(c('1', '2','3'), nrow(posterior_long)/3)
+# 
+# #create dataframe with posteriors of just survival age1 across the three sites
+# #pivot longer puts them in a tibble format
+# posterior_long <- posterior %>% pivot_longer(everything())
+# #make a new column 'site', rep 1:3 assigns 1 to site 1, 2 to site 2 for the number of rows divided by 3
+# posterior_long$site <- rep(c('1', '2','3'), nrow(posterior_long)/3)
+# 
+# # ##GGPLOT
+# plot_base_phi <-
+#   ggplot(data = posterior_long, aes(x=site, y=value))+
+#   theme_bw() +
+#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+#         panel.border = element_blank(),
+#         axis.line = element_line(),
+#         legend.position = c(0.9,0.93),
+#         legend.title = element_blank(),
+#         legend.text = element_text(size = 24),
+#         plot.title = element_text(face = 'bold', size = 40, hjust = 0.5 ),
+#         axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+#         axis.text = element_text(face='bold',size = 24),
+#         axis.text.x = element_text(angle = 45, hjust = 1),
+#         panel.background = element_rect(fill='transparent'), #transparent panel bg
+#         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+# 
+# phi.plot<- plot_base_phi +
+#   stat_pointinterval(aes(color = site), alpha = 1, .width = c(0.5, 0.95),
+#                      position = position_dodge(width = 0.5)) +
+#   # scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
+#   #                    values=c("orange", "black", "darkorchid"))+
+#   # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
+#   #                  labels = c('1.5-2.5', '2.5-3.5', '3.5-4.5' ,'4.5-5.5' ,'5.5-6.5' ,'6.5-7.5','7.5-8.5',
+#   #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
+#   labs(x = "SITE", y = "ANNUAL SURVIVAL PROBABILITY",
+#        title = "ANNUAL SURVIVAL BY SITE")
+# 
+# ggsave('phi_age_site.png', phi.plot, bg='transparent', width = 15, height = 10)
+# ggsave('./figures/phi_rain_site.jpg', phi.plot, width = 15, height = 10)
 
-##GGPLOT
-plot_base_phi <-
-  ggplot(data = posterior_long, aes(x=site, y=value))+
-  theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.border = element_blank(),
-        axis.line = element_line(),
-        legend.position = c(0.9,0.93),
-        legend.title = element_blank(),
-        legend.text = element_text(size = 24),
-        plot.title = element_text(face = 'bold', size = 40, hjust = 0.5 ),
-        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
-        axis.text = element_text(face='bold',size = 24),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        panel.background = element_rect(fill='transparent'), #transparent panel bg
-        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
-
-phi.plot<- plot_base_phi +
-  stat_pointinterval(aes(color = site), alpha = 1, .width = c(0.5, 0.95),
-                     position = position_dodge(width = 0.5)) +
-  # scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
-  #                    values=c("orange", "black", "darkorchid"))+
-  # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
-  #                  labels = c('1.5-2.5', '2.5-3.5', '3.5-4.5' ,'4.5-5.5' ,'5.5-6.5' ,'6.5-7.5','7.5-8.5',
-  #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
-  labs(x = "SITE", y = "ANNUAL SURVIVAL PROBABILITY",
-       title = "ANNUAL SURVIVAL BY SITE")
-
-ggsave('phi_age_site.png', phi.plot, bg='transparent', width = 15, height = 10)
-ggsave('./figures/phi_rain_site.jpg', phi.plot, width = 15, height = 10)
-
-
-
-# Specify model in JAGS language
-sink("cjs-site.jags")
-cat("
-model {
-
-#prior for recapture prob
-p ~ dbeta(1, 1)
-   
-
-#priors
-
-for (u in 1:3){
-  site.beta[u] ~ dnorm(0,0.01)
-}
-
-# Likelihood 
-for (i in 1:nind){
-   # Define latent state at first capture, we know for sure the animal is alive
-      z[i,f[i]] <- 1
-      
-      for (t in (f[i]+1):h[i]){ 
-        # State process
-            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
-            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- site.beta[bs[i]] 
-          
-          # Observation process
-            ch[i,t] ~ dbern(mu2[i,t])
-            mu2[i,t] <- p * z[i,t]
-      } #t
-   } #i
-
-#derived paramaters
-  for (i in 1:3){ #site 
-      survival[i] <- exp(site.beta[i])/ 
-                            (1 + exp(site.beta[i]))
-    }                     #delta method to convert from logit back to probability Powell et al. 2007
-    
-    for (i in 2:3){
-      survival_difference[i] <- survival[1] - survival[i]
-      }
-}
-",fill = TRUE)
-sink()
-
-
-#Function for latent state
-z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
-
-for(i in 1:dim(z.init)[1]){
-  z.init[i, f[i]:h[i]] <- 1
-  z.init[i,f[i]] <- NA
-}
-
-
-# Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs)#, 
-
-# Initial values
-inits <- function(){list(int = rnorm(1, 0, 1), z = z.init,
-                         site.beta =  rnorm(3,0,1))}
-
-parameters <- c('int', 'site.beta', 'p', 'survival', 'survival_difference')
-
-# MCMC settings
-ni <- 1000
-nt <- 10
-nb <- 100
-nc <- 3
-
-# Call JAGS from R (BRT 3 min)
-cjs.site <- jagsUI(jags.data, inits, parameters, "cjs-site.jags", n.chains = nc, 
-                        n.thin = nt, n.iter = ni, n.burnin = nb, parallel = FALSE)
-
-print(cjs.site)
-summary<- cjs.site$summary
-write.csv(summary, './output/phi.bs.csv', row.names = F)
-
-#create a tibble of the posterior draws
-posterior<- tidy_draws(cjs.site)
-posterior<- posterior[,c(8:10)]
-
-#create dataframe with posteriors of just survival age1 across the three sites
-#pivot longer puts them in a tibble format
-posterior_long <- posterior %>% pivot_longer(everything())
-#make a new column 'site', rep 1:3 assigns 1 to site 1, 2 to site 2 for the number of rows divided by 3
-posterior_long$site <- rep(c('1', '2','3'), nrow(posterior_long)/3)
-
-##GGPLOT
-plot_base_phi <-
-  ggplot(data = posterior_long, aes(x=site, y=value))+
-  theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.border = element_blank(),
-        axis.line = element_line(),
-        legend.position = c(0.9,0.93),
-        legend.title = element_blank(),
-        legend.text = element_text(size = 24),
-        plot.title = element_text(face = 'bold', size = 40, hjust = 0.5 ),
-        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
-        axis.text = element_text(face='bold',size = 24),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        panel.background = element_rect(fill='transparent'), #transparent panel bg
-        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
-
-phi.plot<- plot_base_phi +
-  stat_pointinterval(aes(color = site), alpha = 1, .width = c(0.5, 0.95),
-                     position = position_dodge(width = 0.5)) +
-  # scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
-  #                    values=c("orange", "black", "darkorchid"))+
-  # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
-  #                  labels = c('1.5-2.5', '2.5-3.5', '3.5-4.5' ,'4.5-5.5' ,'5.5-6.5' ,'6.5-7.5','7.5-8.5',
-  #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
-  labs(x = "SITE", y = "ANNUAL SURVIVAL PROBABILITY",
-       title = "ANNUAL SURVIVAL BY SITE")
-
-ggsave('.figures/phi_site.png', phi.plot, bg='transparent', width = 15, height = 10)
-ggsave('./figures/phi_site.jpg', phi.plot, width = 15, height = 10)
+# 
+# 
+# # Specify model in JAGS language
+# sink("cjs-site.jags")
+# cat("
+# model {
+# 
+# #prior for recapture prob
+# p ~ dbeta(1, 1)
+#    
+# 
+# #priors
+# 
+# for (u in 1:3){
+#   site.beta[u] ~ dnorm(0,0.01)
+# }
+# 
+# # Likelihood 
+# for (i in 1:nind){
+#    # Define latent state at first capture, we know for sure the animal is alive
+#       z[i,f[i]] <- 1
+#       
+#       for (t in (f[i]+1):h[i]){ 
+#         # State process
+#             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
+#             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+#             logit(phi[i,t-1]) <- site.beta[bs[i]] 
+#           
+#           # Observation process
+#             ch[i,t] ~ dbern(mu2[i,t])
+#             mu2[i,t] <- p * z[i,t]
+#       } #t
+#    } #i
+# 
+# #derived paramaters
+#   for (i in 1:3){ #site 
+#       survival[i] <- exp(site.beta[i])/ 
+#                             (1 + exp(site.beta[i]))
+#     }                     #delta method to convert from logit back to probability Powell et al. 2007
+#     
+#     for (i in 2:3){
+#       survival_difference[i] <- survival[1] - survival[i]
+#       }
+# }
+# ",fill = TRUE)
+# sink()
+# 
+# 
+# #Function for latent state
+# z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+# 
+# for(i in 1:dim(z.init)[1]){
+#   z.init[i, f[i]:h[i]] <- 1
+#   z.init[i,f[i]] <- NA
+# }
+# 
+# 
+# # Bundle data
+# jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs)#, 
+# 
+# # Initial values
+# inits <- function(){list(int = rnorm(1, 0, 1), z = z.init,
+#                          site.beta =  rnorm(3,0,1))}
+# 
+# parameters <- c('int', 'site.beta', 'p', 'survival', 'survival_difference')
+# 
+# # MCMC settings
+# ni <- 1000
+# nt <- 10
+# nb <- 100
+# nc <- 3
+# 
+# # Call JAGS from R (BRT 3 min)
+# cjs.site <- jagsUI(jags.data, inits, parameters, "cjs-site.jags", n.chains = nc, 
+#                         n.thin = nt, n.iter = ni, n.burnin = nb, parallel = FALSE)
+# 
+# print(cjs.site)
+# summary<- cjs.site$summary
+# write.csv(summary, './output/phi.bs.csv', row.names = F)
+# 
+# #create a tibble of the posterior draws
+# posterior<- tidy_draws(cjs.site)
+# posterior<- posterior[,c(8:10)]
+# 
+# #create dataframe with posteriors of just survival age1 across the three sites
+# #pivot longer puts them in a tibble format
+# posterior_long <- posterior %>% pivot_longer(everything())
+# #make a new column 'site', rep 1:3 assigns 1 to site 1, 2 to site 2 for the number of rows divided by 3
+# posterior_long$site <- rep(c('1', '2','3'), nrow(posterior_long)/3)
+# 
+# ##GGPLOT
+# plot_base_phi <-
+#   ggplot(data = posterior_long, aes(x=site, y=value))+
+#   theme_bw() +
+#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+#         panel.border = element_blank(),
+#         axis.line = element_line(),
+#         legend.position = c(0.9,0.93),
+#         legend.title = element_blank(),
+#         legend.text = element_text(size = 24),
+#         plot.title = element_text(face = 'bold', size = 40, hjust = 0.5 ),
+#         axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+#         axis.text = element_text(face='bold',size = 24),
+#         axis.text.x = element_text(angle = 45, hjust = 1),
+#         panel.background = element_rect(fill='transparent'), #transparent panel bg
+#         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+# 
+# phi.plot<- plot_base_phi +
+#   stat_pointinterval(aes(color = site), alpha = 1, .width = c(0.5, 0.95),
+#                      position = position_dodge(width = 0.5)) +
+#   # scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
+#   #                    values=c("orange", "black", "darkorchid"))+
+#   # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
+#   #                  labels = c('1.5-2.5', '2.5-3.5', '3.5-4.5' ,'4.5-5.5' ,'5.5-6.5' ,'6.5-7.5','7.5-8.5',
+#   #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
+#   labs(x = "SITE", y = "ANNUAL SURVIVAL PROBABILITY",
+#        title = "ANNUAL SURVIVAL BY SITE")
+# 
+# ggsave('.figures/phi_site.png', phi.plot, bg='transparent', width = 15, height = 10)
+# ggsave('./figures/phi_site.jpg', phi.plot, width = 15, height = 10)
 

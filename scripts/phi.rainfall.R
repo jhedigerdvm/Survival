@@ -118,13 +118,11 @@ for (i in 1:nind){
 
 #derived paramaters
   for (i in 1:3){ #site 
-      survival[i] <- exp(int+ site.beta[i] + rain.beta + rain.site.beta[rain.sim])/ 
-                            (1 + exp(int+ site.beta[i] + rain.beta + rain.site.beta[i]))
+    for (j in 1:1000)
+      survival[i,j] <- exp(int+ site.beta[i] + rain.beta[j] + rain.site.beta[j])/ 
+                            (1 + exp(int+ site.beta[i] + rain.beta[j] + rain.site.beta[j]))
     }                     #delta method to convert from logit back to probability Powell et al. 2007
     
-    for (i in 2:3){
-      survival_difference[i] <- survival[1] - survival[i]
-      }
 }
 ",fill = TRUE)
 sink()

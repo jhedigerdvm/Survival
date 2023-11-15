@@ -1,10 +1,8 @@
 library(tidyverse)
 library(here)
 #rainfall data
-data<- read.csv('./raw/Rainfall.csv', header = T) #does not contain 2022 data
+data<- read.csv('./raw/Rainfall.csv', header = T) 
 
-#remove JAnuary 2022 and remaining NA rows
-data<- data[-c(241:252),]
 #get into long form with column site
 east.rain<- data[,-4]
 west.rain<- data[,-3]

@@ -137,9 +137,13 @@ data_long$ageclass<- 0
 data_long$ageclass[data_long$ageclass<=0] <- NA #remove any ages that are less than 0
 
 #add rainfall to data long
-rainfall<- read.csv('./cleaned/rainfall_clean.csv', header = T) #manually added rows for 'dmp' in csv
-data_long1<- left_join(data_long,rainfall, by = c('year' = 'Year',
-                                                  'bs' = 'site' )) #no 2022 rain data
+rainfall<- read.csv('./cleaned/rainfall_clean.csv', header = T)
+dmp <- rainfall[rainfall$site=='wy',] #need to add site 'dmp' to rainfall, same as wy
+dmp$site<- 'dmp' #rename wy to dmp 
+rainfall1<- rbind(rainfall,dmp)
+
+data_long1<- left_join(data_long,rainfall1, by = c('year' = 'Year',
+                                                  'bs' = 'site' )) 
 
 write.csv(data_long1, './cleaned/caphx.rainfall.long.csv', row.names = F)
                     

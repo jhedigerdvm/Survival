@@ -1,5 +1,4 @@
-#Survival model for age and birthsite, capyear as a random effect
-#treatment and control survival are not different, but TGT survive less 
+#Survival model with interaction between rainfall and birth site 
 library(jagsUI)
 library(tidyverse)
 library(MCMCvis)
@@ -8,9 +7,9 @@ library(mcmcr)
 library(here)
 
 data<- read.csv('./cleaned/caphx.rainfall.long.csv', header = T)
-data<- data[data$birth_year != '2021',] #remove 2021 cohort
+data<- data[data$birth_year != '2021',] #remove 2021 cohort because first capture is also last capture
 
-#remove individuals with no capture ocassions
+#remove individuals with no capture occasions
 data1<-
   data %>% 
   group_by(animal_id) %>%
@@ -22,8 +21,20 @@ data2 <- data[!data$animal_id %in% to_remove$animal_id,]
 ch<- pivot_wider(data2, names_from = 'year', values_from = 'status', id_cols = 'animal_id' )
 ch<-ch[,-1]
 ch<-as.matrix(ch)
-data2$annual <-scale(data2$annual)
-annual.rainfall<-pivot_wider(data2, names_from = 'year', values_from = 'annual', id_cols = 'animal_id' )
+data2$annual.sc <-scale(data2$annual) #scale and center data
+# data2$annual.sc <-scale(data2$annual, scale = F, center = F) #how to unscale and center data
+
+# 
+# data2$annual <- data$annual - 
+# xmin <- min(x)
+# xmax <- max(x)
+# x_scaled <- (x - xmin) / (xmax - xmin)
+# 
+# # Center  
+# x_mean <- mean(x)
+# x_centered <- x - x_mean
+
+annual.rainfall<-pivot_wider(data2, names_from = 'year', values_from = 'annual.sc', id_cols = 'animal_id' )
 annual.rainfall<-annual.rainfall[,-1]
 annual.rainfall<-as.matrix(annual.rainfall)
 
@@ -64,11 +75,11 @@ get.last<- function(x) min(which(x>1))
 h <- apply(known.fate,1,get.last)
 h <- replace(h, is.infinite(h), 15)
 h
-f-h #need to remove birth year 2021 
+f-h #check for zero
 
 nvalues <- 1000
-rain.sim <- seq(from = -1.61, to = 2.52, length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data2
-
+rain.sim <- seq(from = min(annual.rainfall), to = max(annual.rainfall), length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data2
+rain.sim
 
 
 # Specify model in JAGS language
@@ -81,13 +92,7 @@ p ~ dbeta(1, 1)
    
 
 #priors
-# age.beta[1] <- 0
 site.beta[1] <- 0
-int ~ dnorm(0, 0.001)
-
-# for (u in 2:14){     #15 age classes but 14 survival periods                        
-#    age.beta[u] ~ dnorm(0,0.01)              # Priors for age-specific survival
-# }
 
 for (u in 2:3){
   site.beta[u] ~ dnorm(0,0.01)
@@ -111,7 +116,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + rain.beta*rain[i,t-1]  + rain.site.beta[bs[i]]*rain[i,t-1]
+            logit(phi[i,t-1]) <- site.beta[bs[i]] + rain.beta*rain[i,t-1]  + rain.site.beta[bs[i]]*rain[i,t-1]
           
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -122,13 +127,10 @@ for (i in 1:nind){
 #derived parameters
   for (i in 1:3){ #site and rain.site.beta
     for (j in 1:1000){ #rain
-      survival[j,i] <- exp(int+ site.beta[i] + rain.beta*rain.sim[j] + rain.site.beta[i]*rain.sim[j])/
-                            (1 + exp(int + site.beta[i] + rain.beta*rain.sim[j] + rain.site.beta[i]*rain.sim[j]))
-    }                     #delta method to convert from logit back to probability Powell et al. 2007
-  }
-  for (i in 1:3){
-  rain.site.diff[i] <- rain.site.beta[1] - rain.site.beta[i]
-  }
+      survival[j,i] <- exp(site.beta[i] + rain.beta*rain.sim[j] + rain.site.beta[i]*rain.sim[j])/
+                            (1 + exp(site.beta[i] + rain.beta*rain.sim[j] + rain.site.beta[i]*rain.sim[j]))
+      }                     #delta method to convert from logit back to probability Powell et al. 2007
+    }
 }
 ",fill = TRUE)
 sink()
@@ -144,15 +146,13 @@ for(i in 1:dim(z.init)[1]){
 
 
 # Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs, rain = annual.rainfall, rain.sim = rain.sim)#, , rain.sim = rain.sim
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs, rain = annual.rainfall, rain.sim = rain.sim)
 
 # Initial values
-inits <- function(){list(int = rnorm(1, 0, 1), z = z.init, rain.beta = rnorm(1, 0, 1),
-                                                              site.beta = c(NA, rnorm(2,0,1)), 
-                         rain.site.beta = c(NA, rnorm(2,0,1)))} #
+inits <- function(){list(z = z.init, rain.beta = rnorm(1, 0, 1),
+                         site.beta = c(NA, rnorm(2,0,1)), rain.site.beta = c(NA, rnorm(2,0,1)))} #
 
-parameters <- c('int', 'site.beta', 'rain.beta', 'rain.site.beta', 'p', 'rain.site.diff','survival' )
-# 'survival', 'site_diff' 'survival',, 'site_diff','eps.capyear' 'int','site.beta', 'survival_difference'
+parameters <- c('site.beta', 'rain.beta', 'rain.site.beta', 'p','survival' )
 
 # MCMC settings
 ni <- 1000
@@ -169,78 +169,90 @@ summary<- cjs.rain.site$summary
 write.csv(summary, './output/rain.bs.csv', row.names = F)
 
 
-# 
-# # 
-# #create a tibble of the posterior draws
-# posterior<- tidy_draws(cjs.rain.site)
-# posterior<- posterior[,-c(1:12)]
-# posterior <- posterior[,-3001]
-# 
-# #create dataframe with posteriors of just survival age1 across the three sites
-# #pivot longer puts them in a tibble format
-# posterior_long <- posterior %>% pivot_longer(everything())
-# #make a new column 'site', rep 1:3 assigns 1 to site 1, 2 to site 2 for the number of rows divided by 3
-# posterior_long$rain <- rep(rain.sim, nrow(posterior_long)/1000)
-# 
-# #make a new column for site
-# posterior_long$site <- '1'
-# 
-# # Set total rows 
-# num_rows <- 8100000
-# 
-# # Create empty values vector
-# values <- vector(length = num_rows) 
-# 
-# # Index for filling  
-# index <- 1
-# 
-# # Repeat till last row
-# while(index <= num_rows){
-#   
-#   # Insert 1 
-#   values[index:(index+999)] <- 1
-#   index <- index + 1000
-#   
-#   # Insert 2
-#   values[index:(index+999)] <- 2
-#   index <- index + 1000
-#   
-#   # Insert 3
-#   values[index:(index+999)] <- 3
-#   index <- index + 1000
-#   
-# }
-# posterior_long<- cbind(posterior_long,values)
-# 
-# posterior_long <- rename(posterior_long, site = values)
-# posterior_long$site<- as.factor(posterior_long$site)
-# ##GGPLOT
-# plot_base_phi <-
-#   ggplot(data = posterior_long, aes(x=rain, y=value, group = site))+
-#   theme_bw() +
-#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-#         panel.border = element_blank(),
-#         axis.line = element_line(),
-#         legend.position = c(0.2,0.8),
-#         legend.title = element_blank(),
-#         legend.text = element_text(size = 24),
-#         plot.title = element_text(face = 'bold', size = 36, hjust = 0.5 ),
-#         axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
-#         axis.text = element_text(face='bold',size = 24),
-#         axis.text.x = element_text(angle = 45, hjust = 1),
-#         panel.background = element_rect(fill='transparent'), #transparent panel bg
-#         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
-# 
-# phi.plot<- plot_base_phi +
-#   geom_smooth(method = lm, aes(color = site)) +
-#   scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
-#                      values=c("orange", "black", "darkorchid"))+
-#   # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
-#   #                  labels = c('1.5-2.5', '2.5-3.5', '3.5-4.5' ,'4.5-5.5' ,'5.5-6.5' ,'6.5-7.5','7.5-8.5',
-#   #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
-#   labs(x = "ANNUAL RAINFALL", y = "ANNUAL SURVIVAL PROBABILITY",
-#        title = "RAINFALL AND ANNUAL SURVIVAL BY SITE")
-# 
-# # ggsave('phi_age_site.png', phi.plot, bg='transparent', width = 15, height = 10)
-# ggsave('./figures/phi_rain_site.jpg', phi.plot, width = 12, height = 10)
+
+#
+#create a tibble of the posterior draws
+posterior<- tidy_draws(cjs.rain.site)
+posterior<- posterior[,-c(1:11)]
+posterior <- posterior[,-3001]
+
+#create dataframe with posteriors of just survival age1 across the three sites
+#pivot longer puts them in a tibble format
+posterior_long <- posterior %>% pivot_longer(everything())
+#make a new column 'site', rep 1:3 assigns 1 to site 1, 2 to site 2 for the number of rows divided by 3
+posterior_long$rain <- rep(rain.sim, nrow(posterior_long)/1000)
+
+#need to unscale and uncenter rainfall data
+mean(data$annual, na.rm = T) #23.62
+min(data$annual, na.rm = T) # 12
+max(data$annual, na.rm = T) # 41.8
+
+# To undo scaling:
+posterior_long$rain1<- (posterior_long$rain *(41.8-12)) + 12
+
+# To undo centering:
+posterior_long$rain1 <- posterior_long$rain1 + 23.62
+
+
+#make a new column for site
+posterior_long$site <- '1'
+
+# Set total rows
+num_rows <- 8100000
+
+# Create empty values vector
+values <- vector(length = num_rows)
+
+# Index for filling
+index <- 1
+
+# Repeat till last row
+while(index <= num_rows){
+
+  # Insert 1
+  values[index:(index+999)] <- 1
+  index <- index + 1000
+
+  # Insert 2
+  values[index:(index+999)] <- 2
+  index <- index + 1000
+
+  # Insert 3
+  values[index:(index+999)] <- 3
+  index <- index + 1000
+
+}
+posterior_long<- cbind(posterior_long,values)
+
+posterior_long <- rename(posterior_long, site = values)
+posterior_long$site<- as.factor(posterior_long$site)
+##GGPLOT
+plot_base_phi <-
+  ggplot(data = posterior_long, aes(x=rain, y=value, group = site))+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = c(0.2,0.8),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 24),
+        plot.title = element_text(face = 'bold', size = 36, hjust = 0.5 ),
+        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 24),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+
+phi.plot<- plot_base_phi +
+  geom_smooth(method = lm, aes(color = site)) +
+  scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
+                     values=c("orange", "black", "darkorchid"))+
+  # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
+  #                  labels = c('1.5-2.5', '2.5-3.5', '3.5-4.5' ,'4.5-5.5' ,'5.5-6.5' ,'6.5-7.5','7.5-8.5',
+  #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
+  labs(x = "ANNUAL RAINFALL", y = "ANNUAL SURVIVAL PROBABILITY",
+       title = "RAINFALL AND ANNUAL SURVIVAL BY SITE")
+
+# ggsave('phi_age_site.png', phi.plot, bg='transparent', width = 15, height = 10)
+ggsave('./figures/phi_rain_site.jpg', phi.plot, width = 12, height = 10)
 

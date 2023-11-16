@@ -34,10 +34,6 @@ data2$annual.sc <-scale(data2$annual) #scale and center data
 # x_mean <- mean(x)
 # x_centered <- x - x_mean
 
-annual.rainfall<-pivot_wider(data2, names_from = 'year', values_from = 'annual.sc', id_cols = 'animal_id' )
-annual.rainfall<-annual.rainfall[,-1]
-annual.rainfall<-as.matrix(annual.rainfall)
-
 known.fate <- ch #known fate matrix with 2 indentifying deaths associated with capture or harvest
 
 #create capture history with just 1s and 0s, remove 'known fates'
@@ -77,8 +73,18 @@ h <- replace(h, is.infinite(h), 15)
 h
 f-h #check for zero
 
+#manually scale and center rainfall
+data2$annual.sc1<- data2$annual - mean(data2$annual)
+data2$annual.sc1<- (data2$annual - min(data2$annual)) / (max(data2$annual) - min(data2$annual))
+
+
+annual.rainfall<-pivot_wider(data2, names_from = 'year', values_from = 'annual.sc1', id_cols = 'animal_id' )
+annual.rainfall<-annual.rainfall[,-1]
+annual.rainfall<-as.matrix(annual.rainfall)
+
+
 nvalues <- 1000
-rain.sim <- seq(from = min(annual.rainfall), to = max(annual.rainfall), length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data2
+rain.sim <- seq(from = min(data2$annual.sc1), to = max(data2$annual.sc1), length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data2
 rain.sim
 
 

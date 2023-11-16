@@ -145,6 +145,22 @@ rainfall1<- rbind(rainfall,dmp)
 data_long1<- left_join(data_long,rainfall1, by = c('year' = 'surv.year',
                                                   'bs' = 'site' )) 
 
+data<- data_long1 
+data<- data[data$birth_year != '2021',] #remove 2021 cohort because first capture is also last capture
+
+#remove individuals with no capture occasions
+data1<-
+  data %>% 
+  group_by(animal_id) %>%
+  summarise(status_sum = sum(status)) %>%
+  filter(status_sum < 1) -> to_remove
+
+data2 <- data[!data$animal_id %in% to_remove$animal_id,]
+
+data2$annual.sc <-scale(data2$annual) #scale and center data
+data2$sum.march.apr.may.sc<- scale(data2$sum.march.apr.may)
+data2$sum.jun.jul.aug.sc<- scale(data2$sum.jun.jul.aug)
+
 write.csv(data_long1, './cleaned/caphx.rainfall.long.csv', row.names = F)
                     
 

@@ -171,9 +171,9 @@ posterior_long$rain <- rep(rain.sim, nrow(posterior_long)/1000)
 # min(data$annual, na.rm = T) # 12
 # max(data$annual, na.rm = T) # 41.8
 # sd(data$annual) #7
-
-# To undo center and scaling:
-posterior_long$rain1<- (posterior_long$rain * 7) + 23.62
+# 
+# # To undo center and scaling:
+# posterior_long$rain1<- (posterior_long$rain * 7) + 23.62
 
 # #make a new column for site
 # posterior_long$site <- '1'

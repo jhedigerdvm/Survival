@@ -2,7 +2,7 @@ library(tidyverse)
 library(here)
 #rainfall data
 data<- read.csv('./raw/Rainfall.csv', header = T) 
-
+data$surv.year<- data$surv.year - 1
 #get into long form with column site
 east.rain<- data[,-4]
 west.rain<- data[,-3]

@@ -161,7 +161,7 @@ data2$annual.sc <-scale(data2$annual) #scale and center data
 data2$sum.march.apr.may.sc<- scale(data2$sum.march.apr.may)
 data2$sum.jun.jul.aug.sc<- scale(data2$sum.jun.jul.aug)
 
-write.csv(data_long1, './cleaned/caphx.rainfall.long.csv', row.names = F)
+write.csv(data2, './cleaned/caphx.rainfall.long.csv', row.names = F)
                     
 
 

@@ -7,32 +7,11 @@ library(mcmcr)
 library(here)
 
 data<- read.csv('./cleaned/caphx.rainfall.long.csv', header = T)
-data<- data[data$birth_year != '2021',] #remove 2021 cohort because first capture is also last capture
 
-#remove individuals with no capture occasions
-data1<-
-  data %>% 
-  group_by(animal_id) %>%
-  summarise(status_sum = sum(status)) %>%
-  filter(status_sum < 1) -> to_remove
 
-data2 <- data[!data$animal_id %in% to_remove$animal_id,]
-
-ch<- pivot_wider(data2, names_from = 'year', values_from = 'status', id_cols = 'animal_id' )
+ch<- pivot_wider(data, names_from = 'year', values_from = 'status', id_cols = 'animal_id' )
 ch<-ch[,-1]
 ch<-as.matrix(ch)
-data2$annual.sc <-scale(data2$annual) #scale and center data
-# data2$annual.sc <-scale(data2$annual, scale = F, center = F) #how to unscale and center data
-
-# 
-# data2$annual <- data$annual - 
-# xmin <- min(x)
-# xmax <- max(x)
-# x_scaled <- (x - xmin) / (xmax - xmin)
-# 
-# # Center  
-# x_mean <- mean(x)
-# x_centered <- x - x_mean
 
 known.fate <- ch #known fate matrix with 2 indentifying deaths associated with capture or harvest
 
@@ -47,11 +26,11 @@ get.first <- function(x) min(which(x!=0))
 f <- apply(ch, 1, get.first) 
 
 #create birthsite vector
-id.bs.by <- unique(data2[, c("animal_id", "bs",'birth_year')])
+id.bs.by <- unique(data[, c("animal_id", "bs",'birth_year')])
 bs <- as.numeric(factor(id.bs.by$bs)) # 1 = dmp, 2 = ey, 3 = wy
 
 #create ageclass matrix
-ageclass<- pivot_wider(data2, names_from = 'year', values_from = 'ageclass', id_cols = 'animal_id' )
+ageclass<- pivot_wider(data, names_from = 'year', values_from = 'ageclass', id_cols = 'animal_id' )
 ageclass<- ageclass[,-1]
 ageclass<-as.matrix(ageclass)
 
@@ -72,23 +51,20 @@ h <- apply(known.fate,1,get.last)
 h <- replace(h, is.infinite(h), 15)
 h
 f-h #check for zero
-# 
-# #manually scale and center rainfall
-# data2$annual.sc1<- data2$annual - mean(data2$annual)
-# data2$annual.sc1<- (data2$annual - min(data2$annual)) / (max(data2$annual) - min(data2$annual))
 
 
-annual.rainfall<-pivot_wider(data2, names_from = 'year', values_from = 'annual.sc', id_cols = 'animal_id' )
+annual.rainfall<-pivot_wider(data, names_from = 'year', values_from = 'annual.sc', id_cols = 'animal_id' )
 annual.rainfall<-annual.rainfall[,-1]
 annual.rainfall<-as.matrix(annual.rainfall)
 
 
 nvalues <- 1000
-rain.sim <- seq(from = min(data2$annual.sc), to = max(data2$annual.sc), length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data2
+rain.sim <- seq(from = min(annual.rainfall, na.rm = T), to = max(annual.rainfall, na.rm = T), length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data
 rain.sim
 
 
 # Specify model in JAGS language
+set.seed(100)
 sink("cjs-rain-site.jags")
 cat("
 model {

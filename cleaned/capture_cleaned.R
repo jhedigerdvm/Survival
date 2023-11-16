@@ -142,7 +142,7 @@ dmp <- rainfall[rainfall$site=='wy',] #need to add site 'dmp' to rainfall, same 
 dmp$site<- 'dmp' #rename wy to dmp 
 rainfall1<- rbind(rainfall,dmp)
 
-data_long1<- left_join(data_long,rainfall1, by = c('year' = 'Year',
+data_long1<- left_join(data_long,rainfall1, by = c('year' = 'surv.year',
                                                   'bs' = 'site' )) 
 
 write.csv(data_long1, './cleaned/caphx.rainfall.long.csv', row.names = F)

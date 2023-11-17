@@ -8,7 +8,6 @@ library(here)
 
 data<- read.csv('./cleaned/caphx.rainfall.jan.dec.csv', header = T)
 
-
 ch<- pivot_wider(data, names_from = 'year', values_from = 'status', id_cols = 'animal_id' )
 ch<-ch[,-1]
 ch<-as.matrix(ch)
@@ -53,10 +52,10 @@ h
 f-h #check for zero
 
 
-annual.rainfall<-pivot_wider(data, names_from = 'year', values_from = 'annual.sc', id_cols = 'animal_id' )
+annual.rainfall<-pivot_wider(data, names_from = 'year', values_from = 'annual', id_cols = 'animal_id' )
 annual.rainfall<-annual.rainfall[,-1]
 annual.rainfall<-as.matrix(annual.rainfall)
-
+write.csv(annual.rainfall, 'rain.jan.dec.csv', row.names = F)
 
 nvalues <- 1000
 rain.sim <- seq(from = min(annual.rainfall, na.rm = T), to = max(annual.rainfall, na.rm = T), length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data

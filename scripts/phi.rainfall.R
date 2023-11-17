@@ -6,7 +6,7 @@ library(tidybayes)
 library(mcmcr) 
 library(here)
 
-data<- read.csv('./cleaned/caphx.rainfall.long.csv', header = T)
+data<- read.csv('./cleaned/caphx.rainfall.jan.dec.csv', header = T)
 
 
 ch<- pivot_wider(data, names_from = 'year', values_from = 'status', id_cols = 'animal_id' )

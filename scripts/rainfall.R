@@ -3,7 +3,7 @@ library(tidyverse)
 library(here)
 #rainfall data
 data<- read.csv('./raw/Rainfall.csv', header = T) 
-data$surv.year<- data$surv.year - 1
+# data$surv.year<- data$surv.year - 1
 
 #get into long form with column site
 east.rain<- data[,-4]
@@ -52,4 +52,4 @@ rainfall$oct <- total.oct$sum.oct
 rainfall$annual<- totalrain$total.rain
 # rainfall <- rainfall[,-4]
 
-write.csv(rainfall, './cleaned/rainfall_clean_jan_dec.csv', row.names = F)
+write.csv(rainfall, './cleaned/rainfall_clean_nov_oct1.csv', row.names = F)

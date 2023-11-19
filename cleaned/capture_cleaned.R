@@ -137,7 +137,7 @@ data_long$ageclass<- 0
 data_long$ageclass[data_long$ageclass<=0] <- NA #remove any ages that are less than 0
 
 #add rainfall to data long
-rainfall<- read.csv('./cleaned/rainfall_clean_jan_dec.csv', header = T)
+rainfall<- read.csv('./cleaned/rainfall_clean_nov_oct1.csv', header = T)
 dmp <- rainfall[rainfall$site=='wy',] #need to add site 'dmp' to rainfall, same as wy
 dmp$site<- 'dmp' #rename wy to dmp 
 rainfall1<- rbind(rainfall,dmp)
@@ -161,7 +161,7 @@ data2$annual.sc <-scale(data2$annual) #scale and center data
 data2$sum.march.apr.may.sc<- scale(data2$sum.march.apr.may)
 data2$sum.jun.jul.aug.sc<- scale(data2$sum.jun.jul.aug)
 
-write.csv(data2, './cleaned/caphx.rainfall.jan.dec.csv', row.names = F)
+write.csv(data2, './cleaned/caphx.rainfall.nov.oct1.csv', row.names = F)
                     
 
 

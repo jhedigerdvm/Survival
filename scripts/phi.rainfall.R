@@ -6,7 +6,7 @@ library(tidybayes)
 library(mcmcr) 
 library(here)
 
-data<- read.csv('./cleaned/caphx.rainfall.jan.dec.csv', header = T)
+data<- read.csv('./cleaned/caphx.rainfall.nov.oct1.csv', header = T)
 
 ch<- pivot_wider(data, names_from = 'year', values_from = 'status', id_cols = 'animal_id' )
 ch<-ch[,-1]
@@ -52,10 +52,10 @@ h
 f-h #check for zero
 
 
-annual.rainfall<-pivot_wider(data, names_from = 'year', values_from = 'annual', id_cols = 'animal_id' )
+annual.rainfall<-pivot_wider(data, names_from = 'year', values_from = 'annual.sc', id_cols = 'animal_id' )
 annual.rainfall<-annual.rainfall[,-1]
 annual.rainfall<-as.matrix(annual.rainfall)
-write.csv(annual.rainfall, 'rain.jan.dec.csv', row.names = F)
+# write.csv(annual.rainfall, 'rain.jan.dec.csv', row.names = F)
 
 nvalues <- 1000
 rain.sim <- seq(from = min(annual.rainfall, na.rm = T), to = max(annual.rainfall, na.rm = T), length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data
@@ -138,9 +138,9 @@ inits <- function(){list(int = rnorm(1,0,1), z = z.init, rain.beta = rnorm(1, 0,
 parameters <- c('int', 'site.beta', 'rain.beta', 'rain.site.beta', 'p','survival' )
 
 # MCMC settings
-ni <- 1000
+ni <- 2000
 nt <- 1
-nb <- 100
+nb <- 1000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
@@ -148,11 +148,18 @@ cjs.rain.site <- jagsUI(jags.data, inits, parameters, "cjs-rain-site.jags", n.ch
                        n.thin = nt, n.iter = ni, n.burnin = nb, parallel = FALSE)
 
 print(cjs.rain.site)
+MCMCtrace(cjs.rain.site)
 summary<- cjs.rain.site$summary
 write.csv(summary, './output/rain.bs.csv', row.names = F)
 
+p2.5<- cjs.rain.site$q2.5$survival
+p97.5<- cjs.rain.site$q97.5$survival
+new_mat <- cbind(p2.5[,1], p2.5[,2], p2.5[,3])
+write.csv(p2.5, './output/p2.5.csv', row.names = F)
+write.csv(p97.5, './output/p97.5.csv', row.names = F)
 
-
+p2.5 <- read.csv('./output/p2.5.csv', header = T)
+p97.5 <- read.csv('./output/p97.5.csv', header = T)
 #
 #create a tibble of the posterior draws
 posterior<- tidy_draws(cjs.rain.site)
@@ -164,6 +171,8 @@ posterior <- posterior[,-3001]
 posterior_long <- posterior %>% pivot_longer(everything())
 #make a new column 'site', rep 1:3 assigns 1 to site 1, 2 to site 2 for the number of rows divided by 3
 posterior_long$rain <- rep(rain.sim, nrow(posterior_long)/1000)
+posterior_long$p2.5 <- rep(p2.5$p2.5, nrow(posterior_long)/3000)
+posterior_long$p97.5 <- rep(p97.5$p97.5, nrow(posterior_long)/3000)
 # 
 # #need to unscale and uncenter rainfall data
 # mean(data$annual, na.rm = T) #23.62
@@ -178,7 +187,7 @@ posterior_long$rain <- rep(rain.sim, nrow(posterior_long)/1000)
 # posterior_long$site <- '1'
 
 # Set total rows
-num_rows <- 8100000
+num_rows <- 9000000
 
 # Create empty values vector
 site <- vector(length = num_rows)
@@ -208,7 +217,7 @@ posterior_long$site<- as.factor(posterior_long$site)
 
 ##GGPLOT
 plot_base_phi <-
-  ggplot(data = posterior_long, aes(x=rain1, y=value, group = site))+
+  ggplot(data = posterior_long, aes(x=rain, y=value, group = site))+
   theme_bw() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.border = element_blank(),
@@ -225,6 +234,8 @@ plot_base_phi <-
 
 phi.plot<- plot_base_phi +
   geom_smooth(method = lm, aes(color = site)) +
+  # geom_ribbon(aes(ymin = min(posterior_long$p2.5), ymax = max(posterior_long$p97.5), color = site))+
+  # stat_lineribbon(.width = 0.95, aes(color = site), show.legend = F)+
   scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
                      values=c("orange", "black", "darkorchid"))+
   # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
@@ -232,24 +243,24 @@ phi.plot<- plot_base_phi +
   #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
   labs(x = "ANNUAL RAINFALL (IN)", y = "ANNUAL SURVIVAL PROBABILITY",
        title = "RAINFALL AND ANNUAL SURVIVAL BY SITE")
-
-# ggsave('phi_age_site.png', phi.plot, bg='transparent', width = 15, height = 10)
-ggsave('./figures/phi_rain_site2.jpg', phi.plot, width = 12, height = 10)
-
-# compute wAIC for model with covariate
-library(R2jags)
-samples.m1 <- jags.samples(cjs.rain.site$model, 
-                           c("WAIC","deviance"), 
-                           type = "mean", 
-                           n.iter = 5000,
-                           n.burnin = 1000,
-                           n.thin = 1)
-
-samples.m1$p_waic <- samples.m1$WAIC
-samples.m1$waic <- samples.m1$deviance + samples.m1$p_waic
-tmp <- sapply(samples.m1, sum)
-waic.m1 <- round(c(waic = tmp[["waic"]], p_waic = tmp[["p_waic"]]),1)
-
-# The difference in wAIC tells us that the covariate has some effect
-# wAIC of m1 the model with covariate << wAIC of m0 intercept only
-data.frame(m1 = waic.m1)
+# 
+# # ggsave('phi_age_site.png', phi.plot, bg='transparent', width = 15, height = 10)
+# ggsave('./figures/phi_rain_site2.jpg', phi.plot, width = 12, height = 10)
+# # 
+# # # compute wAIC for model with covariate
+# # library(R2jags)
+# # samples.m1 <- jags.samples(cjs.rain.site$model, 
+# #                            c("WAIC","deviance"), 
+#                            type = "mean", 
+#                            n.iter = 5000,
+#                            n.burnin = 1000,
+#                            n.thin = 1)
+# 
+# samples.m1$p_waic <- samples.m1$WAIC
+# samples.m1$waic <- samples.m1$deviance + samples.m1$p_waic
+# tmp <- sapply(samples.m1, sum)
+# waic.m1 <- round(c(waic = tmp[["waic"]], p_waic = tmp[["p_waic"]]),1)
+# 
+# # The difference in wAIC tells us that the covariate has some effect
+# # wAIC of m1 the model with covariate << wAIC of m0 intercept only
+# data.frame(m1 = waic.m1)

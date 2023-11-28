@@ -714,80 +714,101 @@ posterior<- posterior[,1:3000]
 #pivot longer puts them in a tibble format
 posterior_long <- posterior %>% pivot_longer(everything())
 
+# #string search
+# posterior_long %>%
+#   as_tibble() %>%
+#   mutate(rain.sim = rep(rain.sim, 9000),
+#          site = ifelse(str_detect("\\d+\\,1\\,1\\]$"),"one",
+#                        ifelse(str_detect("\\d+\\,2\\,1\\]$"),"two","three")),
+#          age = ifelse(str_detect("1\\]$"),"one",
+#                       ifelse(str_detect("2\\]$"),"two","three"))
+#                               
+# str_detect(pattern = "\\d+\\,1\\,1\\]$", posterior_long$name[1:100])
+
 #make column for rainfall data
+# low<- cjs.rain.site.age$q2.5$survival
+
+mean <- cjs.rain.site.age$mean$survival %>% as_tibble %>% pivot_longer(everything())
+low<- cjs.rain.site.age$q2.5$survival %>% as_tibble() %>%  pivot_longer(everything())
+high<- cjs.rain.site.age$q97.5$survival %>% as_tibble() %>%  pivot_longer(everything())
+
+posterior1 <- cbind(mean, low, high)
+
+
 posterior_long$rain <- rep(rain.sim, nrow(posterior_long)/1000)
-# posterior_long$p2.5 <- rep(p2.5$p2.5, nrow(posterior_long)/3000)
-# posterior_long$p97.5 <- rep(p97.5$p97.5, nrow(posterior_long)/3000)
-#
-# #need to unscale and uncenter rainfall data
-# mean(data$annual, na.rm = T) #23.62
-# min(data$annual, na.rm = T) # 12
-# max(data$annual, na.rm = T) # 41.8
-# sd(data$annual) #7
-#
-# # To undo center and scaling:
-posterior_long$rain1<- (posterior_long$rain * sd(data$annual)) + mean(data$annual)
+posterior_long$p2.5 <- rep(p2.5$p2.5, nrow(posterior_long)/3000)
+posterior_long$p97.5 <- rep(p97.5$p97.5, nrow(posterior_long)/3000)
 
-
-# Set total rows
-num_rows <- 9000000
-
-# Create empty values vector
-site <- vector(length = num_rows)
-
-# Index for filling
-index <- 1
-
-# Repeat till last row
-while(index <= num_rows){
-
-  # Insert 1
-  site[index:(index+999)] <- 1
-  index <- index + 1000
-
-  # Insert 2
-  site[index:(index+999)] <- 2
-  index <- index + 1000
-
-  # Insert 3
-  site[index:(index+999)] <- 3
-  index <- index + 1000
-
-}
-
-
-posterior_long<- cbind(posterior_long,site)
-
-posterior_long$site<- as.factor(posterior_long$site)
-
-
-##GGPLOT
-plot_base_phi <-
-  ggplot(data = posterior_long, aes(x=rain1, y=value, group = site))+
-  theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.border = element_blank(),
-        axis.line = element_line(),
-        legend.position = c(0.2,0.8),
-        legend.title = element_blank(),
-        legend.text = element_text(size = 24),
-        plot.title = element_text(face = 'bold', size = 36, hjust = 0.5 ),
-        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
-        axis.text = element_text(face='bold',size = 24),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        panel.background = element_rect(fill='transparent'), #transparent panel bg
-        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
-
-phi.plot<- plot_base_phi +
-  geom_smooth(method = lm, aes(color = site)) +
-  # geom_ribbon(aes(ymin = min(posterior_long$p2.5), ymax = max(posterior_long$p97.5), color = site))+
-  # stat_lineribbon(.width = 0.95, aes(color = site), show.legend = F)+
-  scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
-                     values=c("orange", "black", "darkorchid"))+
-  # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
-  #                  labels = c('1.5-2.5', '2.5-3.5', '3.5-4.5' ,'4.5-5.5' ,'5.5-6.5' ,'6.5-7.5','7.5-8.5',
-  #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
-  labs(x = "TOTAL RAINFALL (IN)", y = "ANNUAL SURVIVAL PROBABILITY",
-       title = "TOTAL RAINFALL AND ANNUAL SURVIVAL BY SITE")
-
-
+# # #need to unscale and uncenter rainfall data
+# # mean(data$annual, na.rm = T) #23.62
+# # min(data$annual, na.rm = T) # 12
+# # max(data$annual, na.rm = T) # 41.8
+# # sd(data$annual) #7
+# #
+# # # To undo center and scaling:
+# posterior_long$rain1<- (posterior_long$rain * sd(data$annual)) + mean(data$annual)
+# 
+# 
+# # Set total rows
+# num_rows <- 9000000
+# 
+# # Create empty values vector
+# site <- vector(length = num_rows)
+# 
+# # Index for filling
+# index <- 1
+# 
+# # Repeat till last row
+# while(index <= num_rows){
+# 
+#   # Insert 1
+#   site[index:(index+999)] <- 1
+#   index <- index + 1000
+# 
+#   # Insert 2
+#   site[index:(index+999)] <- 2
+#   index <- index + 1000
+# 
+#   # Insert 3
+#   site[index:(index+999)] <- 3
+#   index <- index + 1000
+# 
+# }
+# 
+# 
+# posterior_long<- cbind(posterior_long,site)
+# 
+# posterior_long$site<- as.factor(posterior_long$site)
+# 
+# 
+# ##GGPLOT
+# plot_base_phi <-
+#   ggplot(data = posterior_long, aes(x=rain1, y=value, group = site))+
+#   theme_bw() +
+#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+#         panel.border = element_blank(),
+#         axis.line = element_line(),
+#         legend.position = c(0.2,0.8),
+#         legend.title = element_blank(),
+#         legend.text = element_text(size = 24),
+#         plot.title = element_text(face = 'bold', size = 36, hjust = 0.5 ),
+#         axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+#         axis.text = element_text(face='bold',size = 24),
+#         axis.text.x = element_text(angle = 45, hjust = 1),
+#         panel.background = element_rect(fill='transparent'), #transparent panel bg
+#         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+# 
+# phi.plot<- plot_base_phi +
+#   geom_smooth(method = lm, aes(color = site)) +
+#   # geom_ribbon(aes(ymin = min(posterior_long$p2.5), ymax = max(posterior_long$p97.5), color = site))+
+#   # stat_lineribbon(.width = 0.95, aes(color = site), show.legend = F)+
+#   scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
+#                      values=c("orange", "black", "darkorchid"))+
+#   # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
+#   #                  labels = c('1.5-2.5', '2.5-3.5', '3.5-4.5' ,'4.5-5.5' ,'5.5-6.5' ,'6.5-7.5','7.5-8.5',
+#   #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
+#   labs(x = "TOTAL RAINFALL (IN)", y = "ANNUAL SURVIVAL PROBABILITY",
+#        title = "TOTAL RAINFALL AND ANNUAL SURVIVAL BY SITE")
+# ggsave('./figures/phi_rain_site_age.jpg', phi.plot, width = 12, height = 10)
+# 
+# #other questions would be how does rainfall during birth year influence survival

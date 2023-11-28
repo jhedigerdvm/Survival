@@ -141,7 +141,7 @@ rainfall<- read.csv('./cleaned/rainfall_clean_nov_oct1.csv', header = T)
 dmp <- rainfall[rainfall$site=='wy',] #need to add site 'dmp' to rainfall, same as wy
 dmp$site<- 'dmp' #rename wy to dmp 
 rainfall1<- rbind(rainfall,dmp)
-
+write.csv(rainfall1, './cleaned/rainfall.csv')
 data_long1<- left_join(data_long,rainfall1, by = c('year' = 'Year',
                                                   'bs' = 'site' )) 
 

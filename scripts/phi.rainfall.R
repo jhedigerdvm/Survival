@@ -692,9 +692,9 @@ inits <- function(){list(int = rnorm(1,0,1), z = z.init, rain.beta = rnorm(1, 0,
 parameters <- c('int', 'site.beta', 'rain.beta', 'age.beta', 'rain.site.beta', 'p','survival')
 
 # MCMC settings
-ni <- 2000
+ni <- 1000
 nt <- 1
-nb <- 1000
+nb <- 500
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
@@ -705,14 +705,18 @@ print(cjs.rain.site.age)
 
 
 #create a tibble of the posterior draws
-posterior<- tidy_draws(cjs.rain.site.age)
-posterior<- posterior[,-c(1:26)]
-posterior <- posterior[,-33001]
-posterior<- posterior[,1:3000]
-
-#create dataframe with posteriors of just survival age1 across the three sites
-#pivot longer puts them in a tibble format
-posterior_long <- posterior %>% pivot_longer(everything())
+gather<- cjs.rain.site.age %>% gather_draws(survival[rain,site,age]) #this creates a dataframe in long format with indexing
+gather$site <- as.factor(gather$site)
+gather$age <- as.factor(gather$age)
+# write.csv(gather, './output/posterior_long.csv', row.names = F)
+# posterior<- tidy_draws(cjs.rain.site.age)
+# posterior<- posterior[,-c(1:26)]
+# posterior <- posterior[,-33001]
+# posterior<- posterior[,1:3000]
+# 
+# #create dataframe with posteriors of just survival age1 across the three sites
+# #pivot longer puts them in a tibble format
+# posterior_long <- posterior %>% pivot_longer(everything())
 
 # #string search
 # posterior_long %>%
@@ -727,17 +731,17 @@ posterior_long <- posterior %>% pivot_longer(everything())
 
 #make column for rainfall data
 # low<- cjs.rain.site.age$q2.5$survival
-
-mean <- cjs.rain.site.age$mean$survival %>% as_tibble %>% pivot_longer(everything())
-low<- cjs.rain.site.age$q2.5$survival %>% as_tibble() %>%  pivot_longer(everything())
-high<- cjs.rain.site.age$q97.5$survival %>% as_tibble() %>%  pivot_longer(everything())
-
-posterior1 <- cbind(mean, low, high)
-
-
-posterior_long$rain <- rep(rain.sim, nrow(posterior_long)/1000)
-posterior_long$p2.5 <- rep(p2.5$p2.5, nrow(posterior_long)/3000)
-posterior_long$p97.5 <- rep(p97.5$p97.5, nrow(posterior_long)/3000)
+# 
+# mean1 <- cjs.rain.site.age$mean$survival %>% as_tibble %>% pivot_longer(everything(), cols_vary = 'slowest')
+# low<- cjs.rain.site.age$q2.5$survival %>% as_tibble() %>%  pivot_longer(everything())
+# high<- cjs.rain.site.age$q97.5$survival %>% as_tibble() %>%  pivot_longer(everything())
+# 
+# posterior2 <- cbind(mean, low, high)
+# 
+# 
+# posterior_long$rain <- rep(rain.sim, nrow(posterior_long)/1000)
+# posterior_long$p2.5 <- rep(p2.5$p2.5, nrow(posterior_long)/3000)
+# posterior_long$p97.5 <- rep(p97.5$p97.5, nrow(posterior_long)/3000)
 
 # # #need to unscale and uncenter rainfall data
 # # mean(data$annual, na.rm = T) #23.62
@@ -779,36 +783,36 @@ posterior_long$p97.5 <- rep(p97.5$p97.5, nrow(posterior_long)/3000)
 # posterior_long<- cbind(posterior_long,site)
 # 
 # posterior_long$site<- as.factor(posterior_long$site)
-# 
-# 
-# ##GGPLOT
-# plot_base_phi <-
-#   ggplot(data = posterior_long, aes(x=rain1, y=value, group = site))+
-#   theme_bw() +
-#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-#         panel.border = element_blank(),
-#         axis.line = element_line(),
-#         legend.position = c(0.2,0.8),
-#         legend.title = element_blank(),
-#         legend.text = element_text(size = 24),
-#         plot.title = element_text(face = 'bold', size = 36, hjust = 0.5 ),
-#         axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
-#         axis.text = element_text(face='bold',size = 24),
-#         axis.text.x = element_text(angle = 45, hjust = 1),
-#         panel.background = element_rect(fill='transparent'), #transparent panel bg
-#         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
-# 
-# phi.plot<- plot_base_phi +
-#   geom_smooth(method = lm, aes(color = site)) +
-#   # geom_ribbon(aes(ymin = min(posterior_long$p2.5), ymax = max(posterior_long$p97.5), color = site))+
-#   # stat_lineribbon(.width = 0.95, aes(color = site), show.legend = F)+
-#   scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
-#                      values=c("orange", "black", "darkorchid"))+
-#   # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
-#   #                  labels = c('1.5-2.5', '2.5-3.5', '3.5-4.5' ,'4.5-5.5' ,'5.5-6.5' ,'6.5-7.5','7.5-8.5',
-#   #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
-#   labs(x = "TOTAL RAINFALL (IN)", y = "ANNUAL SURVIVAL PROBABILITY",
-#        title = "TOTAL RAINFALL AND ANNUAL SURVIVAL BY SITE")
-# ggsave('./figures/phi_rain_site_age.jpg', phi.plot, width = 12, height = 10)
-# 
-# #other questions would be how does rainfall during birth year influence survival
+
+# data<- read.csv('./output/posterior_long.csv', header = T)
+##GGPLOT
+plot_base_phi <-
+  ggplot(data = gather, aes(x=rain, y=.value))+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = c(0.2,0.8),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 24),
+        plot.title = element_text(face = 'bold', size = 36, hjust = 0.5 ),
+        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 24),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+
+phi.plot<- plot_base_phi +
+  # geom_smooth(method = lm, aes(color = site)) +
+  # geom_ribbon(aes(ymin = min(posterior_long$p2.5), ymax = max(posterior_long$p97.5), color = site))+
+  stat_lineribbon(.width = 0.95, show.legend = T)+
+  scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
+                     values=c("orange", "black", "darkorchid"))+
+  # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
+  #                  labels = c('1.5-2.5', '2.5-3.5', '3.5-4.5' ,'4.5-5.5' ,'5.5-6.5' ,'6.5-7.5','7.5-8.5',
+  #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
+  labs(x = "TOTAL RAINFALL (IN)", y = "ANNUAL SURVIVAL PROBABILITY",
+       title = "TOTAL RAINFALL AND ANNUAL SURVIVAL BY SITE")
+ggsave('./figures/phi_rain_site_age.jpg', phi.plot, width = 12, height = 10)
+
+#other questions would be how does rainfall during birth year influence survival

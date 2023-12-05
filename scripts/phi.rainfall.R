@@ -708,6 +708,23 @@ print(cjs.rain.site.age)
 gather<- cjs.rain.site.age %>% gather_draws(survival[rain,site,age]) #this creates a dataframe in long format with indexing
 gather$site <- as.factor(gather$site)
 gather$age <- as.factor(gather$age)
+
+#find first row for 2nd rain value
+first_idx <- which(gather$rain == 2)[1] # 49500 values of rain 1 
+
+#unscale and uncenter rain.sim
+rain.sim1 <- (rain.sim * sd(data$annual)) + mean(data$annual)
+
+#create vector containing simulated rainfall data but in the format to sync up with gather 
+vector <- numeric(0)
+rain.sim2 <- for (i in rain.sim1) {
+                rep_i <- rep(i, times = 49500)
+                vector <- c(vector,rep_i)
+  
+}
+
+gather$rain1 <- vector
+
 # write.csv(gather, './output/posterior_long.csv', row.names = F)
 # posterior<- tidy_draws(cjs.rain.site.age)
 # posterior<- posterior[,-c(1:26)]
@@ -743,16 +760,6 @@ gather$age <- as.factor(gather$age)
 # posterior_long$p2.5 <- rep(p2.5$p2.5, nrow(posterior_long)/3000)
 # posterior_long$p97.5 <- rep(p97.5$p97.5, nrow(posterior_long)/3000)
 
-# # #need to unscale and uncenter rainfall data
-# # mean(data$annual, na.rm = T) #23.62
-# # min(data$annual, na.rm = T) # 12
-# # max(data$annual, na.rm = T) # 41.8
-# # sd(data$annual) #7
-# #
-# # # To undo center and scaling:
-# posterior_long$rain1<- (posterior_long$rain * sd(data$annual)) + mean(data$annual)
-# 
-# 
 # # Set total rows
 # num_rows <- 9000000
 # 
@@ -786,33 +793,54 @@ gather$age <- as.factor(gather$age)
 
 # data<- read.csv('./output/posterior_long.csv', header = T)
 ##GGPLOT
-plot_base_phi <-
-  ggplot(data = gather, aes(x=rain, y=.value))+
-  theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.border = element_blank(),
-        axis.line = element_line(),
-        legend.position = c(0.2,0.8),
-        legend.title = element_blank(),
-        legend.text = element_text(size = 24),
-        plot.title = element_text(face = 'bold', size = 36, hjust = 0.5 ),
-        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
-        axis.text = element_text(face='bold',size = 24),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        panel.background = element_rect(fill='transparent'), #transparent panel bg
-        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+# plot_base_phi <-
+#   ggplot(data = gather, aes(x=rain, y=.value, color = site, fill = site))+
+#   theme_bw() +
+#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+#         panel.border = element_blank(),
+#         axis.line = element_line(),
+#         legend.position = c(0.2,0.8),
+#         legend.title = element_blank(),
+#         legend.text = element_text(size = 24),
+#         plot.title = element_text(face = 'bold', size = 36, hjust = 0.5 ),
+#         axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+#         axis.text = element_text(face='bold',size = 24),
+#         axis.text.x = element_text(angle = 45, hjust = 1),
+#         panel.background = element_rect(fill='transparent'), #transparent panel bg
+#         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 
-phi.plot<- plot_base_phi +
-  # geom_smooth(method = lm, aes(color = site)) +
-  # geom_ribbon(aes(ymin = min(posterior_long$p2.5), ymax = max(posterior_long$p97.5), color = site))+
-  stat_lineribbon(.width = 0.95, show.legend = T)+
-  scale_color_manual(name="BIRTH SITE", labels=c("TREATMENT", "CONTROL", "TGT"),
-                     values=c("orange", "black", "darkorchid"))+
-  # scale_x_discrete(limits=c('1', '2', '3', '4' ,'5' ,'6' ,'7','8','9','10','11'),
-  #                  labels = c('1.5-2.5', '2.5-3.5', '3.5-4.5' ,'4.5-5.5' ,'5.5-6.5' ,'6.5-7.5','7.5-8.5',
-  #                             '8.5-9.5','9.5-10.5','10.5-11.5', '11.5-12.5'))+
-  labs(x = "TOTAL RAINFALL (IN)", y = "ANNUAL SURVIVAL PROBABILITY",
-       title = "TOTAL RAINFALL AND ANNUAL SURVIVAL BY SITE")
-ggsave('./figures/phi_rain_site_age.jpg', phi.plot, width = 12, height = 10)
+
+#plot for all ages and facet wrap
+phi.plot<- (gather %>%  
+  ggplot(aes(x=rain1, y=.value, color = site, fill = site)) + #color equals line, fill equals ribbon
+  facet_wrap(vars(age))+
+  stat_lineribbon(.width = 0.95, alpha = 1/4)) #.width is the CRI, alpha is opacity
+
+phi.plot.1<- subset(gather, age %in% '1') %>%  
+              ggplot(aes(x=rain1, y=.value, color = site, fill = site)) +
+              facet_wrap(vars(age))+
+              stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI 
+              scale_fill_viridis_d(alpha = .2) + #this allowed me to opacify the ribbon but not the line
+              scale_color_viridis_d() #color of line but no opacification
+
+phi.plot.6<- subset(gather, age %in% '6') %>%  
+  ggplot(aes(x=rain1, y=.value, color = site, fill = site)) +
+  facet_wrap(vars(age))+
+  stat_lineribbon(.width = 0.95)+
+  scale_fill_viridis_d(alpha = .2) +
+  scale_color_viridis_d()
+
+phi.plot.10<- subset(gather, age %in% '10') %>%  
+  ggplot(aes(x=rain1, y=.value, color = site, fill = site)) +
+  facet_wrap(vars(age))+
+  stat_lineribbon(.width = 0.95)+
+  scale_fill_viridis_d(alpha = .2) +
+  scale_color_viridis_d()
+
+ggsave('./figures/phi_rain_site_age1.jpg', phi.plot.1, width = 10, height = 8)
+ggsave('./figures/phi_rain_site_age6.jpg', phi.plot.6, width = 10, height = 8)
 
 #other questions would be how does rainfall during birth year influence survival
+#how does birthdate affect survival
+
+#code to look at age as a random effect

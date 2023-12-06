@@ -3,7 +3,7 @@ model {
 
 #prior for recapture prob
 p ~ dbeta(1, 1)
-   
+
 
 #priors
 int ~ dnorm(0,0.01)
@@ -23,17 +23,17 @@ for (u in 2:3){
   rain.site.beta[u] ~ dnorm(0,0.01)
 }
 
-# Likelihood 
+# Likelihood
 for (i in 1:nind){
    # Define latent state at first capture, we know for sure the animal is alive
       z[i,f[i]] <- 1
-      
-      for (t in (f[i]+1):h[i]){ 
+
+      for (t in (f[i]+1):h[i]){
         # State process
-            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
             logit(phi[i,t-1]) <- int + site.beta[bs[i]] + rain.beta*rain[i,t-1]  + rain.site.beta[bs[i]]*rain[i,t-1]
-          
+
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
             mu2[i,t] <- p * z[i,t]

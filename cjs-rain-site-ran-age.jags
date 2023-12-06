@@ -8,12 +8,14 @@ p ~ dbeta(1, 1)
 #priors
 int ~ dnorm(0,0.01)
 
-age.beta[1] <- 0
 site.beta[1] <- 0
+eps.ageclass[1] <- 0
 
 for (u in 2:14) {
-  age.beta[u] ~ dnorm(0, 0.01)
+  eps.ageclass[u] ~ dnorm(sigma, tau.ageclass)
 }
+  sigma ~ dunif(0,10) #standard dev
+  tau.ageclass <- 1/(sigma*sigma) #precision = 1/variance
 
 for (u in 2:3){
   site.beta[u] ~ dnorm(0,0.01)
@@ -37,7 +39,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + age.beta[ageclass[i,t-1]] + site.beta[bs[i]] + rain.beta*rain[i,t-1]  + rain.site.beta[bs[i]]*rain[i,t-1]
+            logit(phi[i,t-1]) <- int  + site.beta[bs[i]] + rain.beta*rain[i,t-1]  + rain.site.beta[bs[i]]*rain[i,t-1] + eps.ageclass[ageclass[i,t-1]]
           
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -48,23 +50,22 @@ for (i in 1:nind){
 #derived parameters
   for (i in 1:3){ #site and rain.site.beta
     for (j in 1:1000){ #rain
-      for (k in 1:11){
-        survival[j,i,k] <- exp(int + age.beta[k] + site.beta[i] + rain.beta*rain.sim[j] + rain.site.beta[i]*rain.sim[j])/
-                            (1 + exp(int + age.beta[k] + site.beta[i] + rain.beta*rain.sim[j] + rain.site.beta[i]*rain.sim[j]))
+      
+        survival[j,i] <- exp(int + site.beta[i] + rain.beta*rain.sim[j] + rain.site.beta[i]*rain.sim[j])/
+                            (1 + exp(int + site.beta[i] + rain.beta*rain.sim[j] + rain.site.beta[i]*rain.sim[j]))
       }                     #delta method to convert from logit back to probability Powell et al. 2007
-    }
-  }
-  
-   for (i in 1:3){ #site
-    survival_diff_rain1[i] <- survival[1,1,1] - survival[1,i,1]
   }
   
   for (i in 1:3){ #site
-    survival_diff_rain500[i] <- survival[500,1,1] - survival[500,i,1]
+    survival_diff_rain1[i] <- survival[1,1] - survival[1,i]
   }
   
   for (i in 1:3){ #site
-    survival_diff_rain1000[i] <- survival[1000,1,1] - survival[1000,i,1]
+    survival_diff_rain500[i] <- survival[500,1] - survival[500,i]
+  }
+  
+  for (i in 1:3){ #site
+    survival_diff_rain1000[i] <- survival[1000,1] - survival[1000,i]
   }
 }
 

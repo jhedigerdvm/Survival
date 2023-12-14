@@ -17,3 +17,9 @@ cutoff = '07-31'
 data$early.late <- ifelse(data$monthday > cutoff, 2, 1)
 
 write.csv(data, './cleaned/birthdates.csv', row.names = F)
+
+#load capture data including fawns
+cap<-read.csv('./cleaned/capture_cleaned_fawns_long.csv', header = T)
+
+#filter for individuals born in DMP
+cap<- cap %>% filter(bs == 'dmp')

@@ -22,7 +22,7 @@ ch[indices] <- 1
 
 # Create vector with the occasion each indiv is marked, this gets weird because we know each individual was caught
 #at birth, but we are starting at the second capture occasion
-get.first <- function(x) min(which(x!=0))
+get.first <- function(x) min(which(x!=0)) #x! identifies when x is not equal to zero
 f <- apply(ch, 1, get.first) 
 
 #create birthsite vector
@@ -34,8 +34,8 @@ ageclass<- pivot_wider(data, names_from = 'year', values_from = 'ageclass', id_c
 ageclass<- ageclass[,-1]
 ageclass<-as.matrix(ageclass)
 
-#create animal id vector
-id <- as.numeric(factor(id.bs.by$animal_id))
+# #create animal id vector
+# id <- as.numeric(factor(id.bs.by$animal_id))
 
 #create birth year vector
 birthyear <- as.numeric(as.factor(id.bs.by$birth_year))
@@ -65,10 +65,12 @@ p ~ dbeta(1, 1)
 
 
 #priors
+
 int ~ dnorm(0,0.01)
 
 site.beta[1] <- 0
 age.beta[1]<- 0
+age.site.beta[1] <- 0
 
 for (u in 2:3){
   site.beta[u] ~ dnorm(0,0.01)
@@ -77,6 +79,23 @@ for (u in 2:3){
 for (u in 2:14){
   age.beta[u] ~ dnorm(0,0.01)
 }
+
+for (u in 2:14){ #interaction between age and site
+  age.site.beta[u] ~ dnorm(0, 0.001)
+}
+
+for (u in 1:14){
+  capyear[u] ~ dnorm(0, sigma)
+}
+
+for (u in 1:14){
+  birthyear[u] ~ dnorm(0, sigma)
+}
+
+
+tau <- 1/(sigma*sigma)
+sigma ~ dunif(0,100)
+
 
 # Likelihood
 for (i in 1:nind){
@@ -87,7 +106,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + age.beta[ageclass[i,t-1]]
+            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + age.beta[ageclass[i,t-1]] + age.site.beta[bs[i]]*ageclass[i,t-1]
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -98,8 +117,8 @@ for (i in 1:nind){
 #derived parameters
   for (i in 1:3){ #site 
     for (j in 1:10){ #ageclass
-      survival[i,j] <- exp(int + site.beta[i] + age.beta[j])/
-                            (1 + exp(int + site.beta[i] + age.beta[j]))
+      survival[i,j] <- exp(int + site.beta[i] + age.beta[j] + age.site.beta[i]*j)/
+                            (1 + exp(int + site.beta[i] + age.beta[j] + age.site.beta[i]*j))
       }                     #delta method to convert from logit back to probability Powell et al. 2007
   }
       
@@ -127,9 +146,9 @@ jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs, ageclass = a
 
 # Initial values
 inits <- function(){list(int = rnorm(1,0,1), z = z.init, site.beta = c(NA, rnorm(2,0,1)), 
-                         age.beta = c(NA, rnorm(13,0,1)))} #
+                         age.beta = c(NA, rnorm(13,0,1)), age.site.beta = c(NA, rnorm(13,0,1)))} #
 
-parameters <- c('int', 'site.beta', 'age.beta', 'p','survival_diff','survival' )
+parameters <- c('int', 'site.beta', 'age.beta', 'age.site.beta', 'p','survival_diff','survival' )
 
 # MCMC settings
 ni <- 1500
@@ -145,11 +164,42 @@ print(cjs.age.site)
 # 
 # write.csv(cjs.rain.site.age$summary, './output/rain.site.age.csv')
 # # 
-# # #create a tibble of the posterior draws
-# # gather<- cjs.rain.site.age %>% gather_draws(survival[rain,site,age]) #this creates a dataframe in long format with indexing
-# # gather$site <- as.factor(gather$site)
-# # gather$age <- as.factor(gather$age)
-# 
+#create a tibble of the posterior draws
+gather<- cjs.age.site %>% gather_draws(survival[site,age]) #this creates a dataframe in long format with indexing
+gather$site <- as.factor(gather$site)
+gather$age <- as.factor(gather$age)
+
+
+plot2<- gather %>% 
+  ggplot(aes(x=age, y=.value, color = site, fill = site)) +
+  stat_pointinterval(alpha = .5, .width = c(0.5, 0.95), 
+                     position = position_dodge(width = 0.5)) +
+  scale_fill_discrete(name = "BIRTH SITE", labels = c("DMP", "CONTROL", "TGT")) +
+  scale_color_discrete(name = "BIRTH SITE", labels = c("DMP", "CONTROL", "TGT")) +
+  
+  # scale_fill_viridis_d(begin = 0, end = 0.6, option = 'F', alpha = .2, 
+  #                      labels = "DMP", "CONTROL", "TGT") + #this allowed me to opacify the ribbon but not the line
+  # scale_color_viridis_d(option = 'F', begin = 0, end = 0.6,
+  #                       labels = "DMP", "CONTROL", "TGT")+ #color of line but no opacification
+  labs(x = "AGECLASS", y = "SURVIVAL PROBABILITY", title = "SURVIVAL BY AGE AND SITE")+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = c(0.5,0.3),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 28),
+        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+        axis.title = element_text(face = 'bold',size = 32, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 24),
+        # axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+plot2
+ggsave('./figures/phi.jpg', plot2, width = 8, height = 6)
+
+
+
 # #find first row for 2nd rain value
 # first_idx <- which(gather$rain == 2)[1] # 49500 values of rain 1 
 # 

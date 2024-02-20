@@ -6,10 +6,12 @@ p ~ dbeta(1, 1)
 
 
 #priors
+
 int ~ dnorm(0,0.01)
 
 site.beta[1] <- 0
 age.beta[1]<- 0
+age.site.beta[1] <- 0
 
 for (u in 2:3){
   site.beta[u] ~ dnorm(0,0.01)
@@ -17,6 +19,10 @@ for (u in 2:3){
 
 for (u in 2:14){
   age.beta[u] ~ dnorm(0,0.01)
+}
+
+for (u in 2:14){ #interaction between age and site
+  age.site.beta[u] ~ dnorm(0, 0.001)
 }
 
 # Likelihood
@@ -28,7 +34,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + age.beta[ageclass[i,t-1]]
+            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + age.beta[ageclass[i,t-1]] + age.site.beta[bs[i]]*ageclass[i,t-1]
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -39,8 +45,8 @@ for (i in 1:nind){
 #derived parameters
   for (i in 1:3){ #site 
     for (j in 1:10){ #ageclass
-      survival[i,j] <- exp(int + site.beta[i] + age.beta[j])/
-                            (1 + exp(int + site.beta[i] + age.beta[j]))
+      survival[i,j] <- exp(int + site.beta[i] + age.beta[j] + age.site.beta[i]*j)/
+                            (1 + exp(int + site.beta[i] + age.beta[j] + age.site.beta[i]*j))
       }                     #delta method to convert from logit back to probability Powell et al. 2007
   }
       

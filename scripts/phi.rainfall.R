@@ -599,7 +599,7 @@ rain.sim
 # #derived parameters
 #   for (i in 1:3){ #site and rain.site.beta
 #     for (j in 1:1000){ #rain
-#       for (k in 1:11){
+#       for (k in ages){
 #         survival[j,i,k] <- exp(int + age.beta[k] + site.beta[i] + rain.beta*rain.sim[j] + rain.site.beta[i]*rain.sim[j])/
 #                             (1 + exp(int + age.beta[k] + site.beta[i] + rain.beta*rain.sim[j] + rain.site.beta[i]*rain.sim[j]))
 #       }                     #delta method to convert from logit back to probability Powell et al. 2007

@@ -3,8 +3,8 @@
 # compute wAIC for model with covariate
 library(R2jags)
 
-###############annual rain model
-samples.m1 <- jags.samples(cjs.rain.site$model,
+###############antlers ~ age + site + rain + site*rain + site*age
+samples.m1 <- jags.samples(ant.bs.age.rain.jags$model,
                            c("WAIC","deviance"),
                            type = "mean",
                            n.iter = 5000,
@@ -17,8 +17,8 @@ tmp <- sapply(samples.m1, sum)
 waic.m1 <- round(c(waic = tmp[["waic"]], p_waic = tmp[["p_waic"]]),1)
 
 
-#################### rain, site, and age model
-samples.m2 <- jags.samples(cjs.rain.site.age$model,
+#################### antlers ~ age + site + rain + site*rain
+samples.m2 <- jags.samples(ant.rain.jags$model,
                            c("WAIC","deviance"),
                            type = "mean",
                            n.iter = 5000,
@@ -85,6 +85,5 @@ waic.m6 <- round(c(waic = tmp[["waic"]], p_waic = tmp[["p_waic"]]),1)
 
 
 # wAIC of m1 the model with covariate << wAIC of m0 intercept only
-d<-data.frame(rain.age = waic.m2, rain.age.ran.year = waic.m3, rain.ran.age = waic.m6,
-              totalrain = waic.m1, springrain = waic.m4, summerrain = waic.m5)
-write.csv(d,'./output/waic.rain.csv')
+d<-data.frame(age.site = waic.m1, site.rain = waic.m2)
+write.csv(d,'./output/waic.interactions.csv')

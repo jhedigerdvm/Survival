@@ -1,3 +1,4 @@
+#phi senescence
 #Survival model with effect of birth site and age on survival, excludes fawn to 1.5 year old
 
 library(jagsUI)
@@ -5,8 +6,6 @@ library(tidyverse)
 library(MCMCvis)
 library(tidybayes)
 library(mcmcr) 
-install.packages("viridis")
-library(viridis)
 library(here)
 
 data<- read.csv('./cleaned/caphx.rainfall.nov.oct1.csv', header = T)
@@ -58,7 +57,7 @@ f-h #check for zero
 #model eval the effect of site and age on surv and the interaction between the two
 # Specify model in JAGS language
 set.seed(100)
-sink("cjs-age-site.jags")
+sink("cjs-senesc.jags")
 cat("
 model {
 
@@ -68,31 +67,15 @@ p ~ dbeta(1, 1)
 
 #priors
 
-int ~ dnorm(0,0.01)
-
-site.beta[1] <- 0
-age.beta[1]<- 0
-age.site.beta[1] <- 0
-eps.capyear[1] <- 0
-eps.birthyear[1] <- 0
-
-for (u in 2:3){
-  site.beta[u] ~ dnorm(0,0.01)
-}
-
-for (u in 2:14){
+for (u in 1:14){
   age.beta[u] ~ dnorm(0,0.01)
 }
 
-for (u in 2:14){ #interaction between age and site
-  age.site.beta[u] ~ dnorm(0, 0.001)
-}
-
-for (u in 2:14){
+for (u in 1:14){
   eps.capyear[u] ~ dnorm(0, sigma)
 }
 
-for (u in 2:14){
+for (u in 1:14){
   eps.birthyear[u] ~ dnorm(0, sigma)
 }
 
@@ -110,8 +93,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + age.beta[ageclass[i,t-1]] + age.site.beta[bs[i]]*ageclass[i,t-1] +
-                                            eps.capyear[capyear[i]] + eps.birthyear[birthyear[i]]
+            logit(phi[i,t-1]) <-  age.beta[ageclass[i,t-1]] + eps.capyear[capyear[i]] + eps.birthyear[birthyear[i]]
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -120,19 +102,19 @@ for (i in 1:nind){
    } #i
 
 #derived parameters
-  for (i in 1:3){ #site 
     for (j in 1:10){ #ageclass
-      survival[i,j] <- exp(int + site.beta[i] + age.beta[j] + age.site.beta[i]*j)/
-                            (1 + exp(int + site.beta[i] + age.beta[j] + age.site.beta[i]*j))
+      survival[j] <- exp(age.beta[j])/
+                            (1 + exp(age.beta[j]))
       }                     #delta method to convert from logit back to probability Powell et al. 2007
-  }
+  
       
-  for (i in 1:3){
-    for (j in 1:10){
-    survival_diff[i,j] <- survival[1,j] - survival[i,j]  
-    }
+#   for (i in 1:3){
+#     for (j in 1:10){
+#     survival_diff[i,j] <- survival[1,j] - survival[i,j]  
+#     }
+# }
 }
-}
+
 ",fill = TRUE)
 sink()
 
@@ -147,48 +129,39 @@ for(i in 1:dim(z.init)[1]){
 
 
 # Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs, ageclass = ageclass, capyear=capyear, birthyear = birthyear)
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs, ageclass = ageclass, capyear = capyear,
+                  birthyear = birthyear)
 
 # Initial values
-inits <- function(){list(int = rnorm(1,0,1), z = z.init, site.beta = c(NA, rnorm(2,0,1)), 
-                         age.beta = c(NA, rnorm(13,0,1)), age.site.beta = c(NA, rnorm(13,0,1)),
-                         eps.capyear = c(NA, rnorm(13,0,1)), eps.birthyear = c(NA, rnorm(13,0,1)))} #
+inits <- function(){list(z = z.init, eps.capyear = rnorm(14,0,1), eps.birthyear = rnorm(14,0,1),
+                         age.beta = rnorm(14,0,1))} #
 
-parameters <- c('int', 'site.beta', 'age.beta', 'age.site.beta', 'p','survival_diff','survival', 'eps.capyear', 'eps.birthyear' )
+parameters <- c('age.beta','eps.capyear', 'eps.birthyear', 'p','survival' )
 
 # MCMC settings
-ni <- 3000
+ni <- 1500
 nt <- 1
-nb <- 1000
+nb <- 500
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
-cjs.age.site <- jagsUI(jags.data, inits, parameters, "cjs-age-site.jags", n.chains = nc,
-                        n.thin = nt, n.iter = ni, n.burnin = nb, parallel = FALSE)
+cjs.senesc <- jagsUI(jags.data, inits, parameters, "cjs-senesc.jags", n.chains = nc,
+                       n.thin = nt, n.iter = ni, n.burnin = nb, parallel = FALSE)
 
-print(cjs.age.site)
-MCMCtrace(cjs.age.site)
+print(cjs.senesc)
 # 
 # write.csv(cjs.rain.site.age$summary, './output/rain.site.age.csv')
 # # 
 #create a tibble of the posterior draws
-gather<- cjs.age.site %>% gather_draws(survival[site,age]) #this creates a dataframe in long format with indexing
-gather$site <- as.factor(gather$site)
+gather<- cjs.senesc %>% gather_draws(survival[age]) #this creates a dataframe in long format with indexing
 gather$age <- as.factor(gather$age)
 
 
 plot2<- gather %>% 
-  ggplot(aes(x=age, y=.value, color = site, fill = site)) +
+  ggplot(aes(x=age, y=.value)) +
   stat_pointinterval(alpha = .5, .width = c(0.5, 0.95), 
                      position = position_dodge(width = 0.5)) +
-  scale_fill_manual(values = c("#0072B2", "#D55E00", "#CC79A7"),name = "BIRTH SITE", labels = c("DMP", "CONTROL", "TGT")) +
-  scale_color_manual(values = c("#0072B2", "#D55E00", "#CC79A7"),name = "BIRTH SITE", labels = c("DMP", "CONTROL", "TGT")) +
-  
-  # scale_fill_viridis_d(begin = 0, end = 0.6, option = 'F', alpha = .2, 
-  #                      labels = "DMP", "CONTROL", "TGT") + #this allowed me to opacify the ribbon but not the line
-  # scale_color_viridis_d(option = 'F', begin = 0, end = 0.6,
-  #                       labels = "DMP", "CONTROL", "TGT")+ #color of line but no opacification
-  labs(x = "AGE", y = "SURVIVAL (%)", title = "SURVIVAL BY AGE AND SITE")+
+  labs(x = "AGE", y = "SURVIVAL (%)", title = "SURVIVAL BY AGE")+
   theme_bw() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.border = element_blank(),
@@ -203,27 +176,19 @@ plot2<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 plot2
-ggsave('./figures/phi.age.site.jpg', plot2, width = 10, height = 6)
+ggsave('./figures/phi_senesc.jpg', plot2, width = 10, height = 7)
 
 
-#zoom in on ages 5 6 7
-plot2<- gather %>% filter(age==c("7", "8", "9", "10")) %>% #(age==c("1", "2", "3", "4", "5")) filter(age==c("5", "6", "7")) %>% #(
-  ggplot(aes(x=age, y=.value, color = site, fill = site)) +
+plot2<- gather %>% filter(age== c("7", "8", "9", "10")) %>% #filter(age== c("1", "2", "3", "4", "5")) %>% filter(age== c("5", "6", "7")) %>% #
+  ggplot(aes(x=age, y=.value)) +
   stat_pointinterval(alpha = .5, .width = c(0.5, 0.95), 
                      position = position_dodge(width = 0.5)) +
-  scale_fill_manual(values = c("#0072B2", "#D55E00", "#CC79A7"),name = "BIRTH SITE", labels = c("DMP", "CONTROL", "TGT")) +
-  scale_color_manual(values = c("#0072B2", "#D55E00", "#CC79A7"),name = "BIRTH SITE", labels = c("DMP", "CONTROL", "TGT")) +
-  
-  # scale_fill_viridis_d(begin = 0, end = 0.6, option = 'F', alpha = .2, 
-  #                      labels = "DMP", "CONTROL", "TGT") + #this allowed me to opacify the ribbon but not the line
-  # scale_color_viridis_d(option = 'F', begin = 0, end = 0.6,
-  #                       labels = "DMP", "CONTROL", "TGT")+ #color of line but no opacification
-  labs(x = "AGE", y = "SURVIVAL (%)", title = "SURVIVAL BY AGE AND SITE")+
+  labs(x = "AGE", y = "SURVIVAL (%)", title = "SURVIVAL BY AGE")+
   theme_bw() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.border = element_blank(),
         axis.line = element_line(),
-        legend.position = c(0.3,0.3),
+        legend.position = c(0.5,0.3),
         legend.title = element_blank(),
         legend.text = element_text(size = 28),
         plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
@@ -233,4 +198,48 @@ plot2<- gather %>% filter(age==c("7", "8", "9", "10")) %>% #(age==c("1", "2", "3
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 plot2
-ggsave('./figures/phi.78910.jpg', plot2, width = 10, height = 7)
+ggsave('./figures/phi_senesc78910.jpg', plot2, width = 10, height = 7)
+
+
+# #find first row for 2nd rain value
+# first_idx <- which(gather$rain == 2)[1] # 49500 values of rain 1 
+# 
+# #unscale and uncenter rain.sim
+# # rain.sim1 <- (rain.sim * sd(data$annual)) + mean(data$annual)
+# 
+# #create vector containing simulated rainfall data but in the format to sync up with gather 
+# vector <- numeric(0)
+# rain.sim2 <- for (i in rain.sim1) {
+#   rep_i <- rep(i, times = 99000)
+#   vector <- c(vector,rep_i)
+#   
+# }
+# 
+# gather$rain1 <- vector
+# 
+# #plot for all ages and facet wrap
+# phi.plot<- (gather %>%  
+#               ggplot(aes(x=rain1, y=.value, color = site, fill = site)) + #color equals line, fill equals ribbon
+#               facet_wrap(vars(age))+
+#               stat_lineribbon(.width = 0.95, alpha = 1/4)) #.width is the CRI, alpha is opacity
+# 
+# phi.plot.1<- 
+#   subset(gather, age %in% '1') %>%  
+#   ggplot(aes(x=rain1, y=.value, color = site, fill = site)) +
+#   stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI 
+#   scale_fill_viridis_d(alpha = .2) + #this allowed me to opacify the ribbon but not the line
+#   scale_color_viridis_d()+ #color of line but no opacification
+#   labs(x = "RAINFALL (in)", y = "ANNUAL SURVIVAL PROBABILITY", title = "Phi ~ int + age(1-2) + site + rain + rain*site")+
+#   theme_bw() +
+#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+#         panel.border = element_blank(),
+#         axis.line = element_line(),
+#         legend.position = c(0.5,0.3),
+#         legend.title = element_blank(),
+#         legend.text = element_text(size = 28),
+#         plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+#         axis.title = element_text(face = 'bold',size = 32, hjust = 0.5),
+#         axis.text = element_text(face='bold',size = 28),
+#         # axis.text.x = element_text(angle = 45, hjust = 1),
+#         panel.background = element_rect(fill='transparent'), #transparent panel bg
+#         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)

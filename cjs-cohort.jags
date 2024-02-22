@@ -3,61 +3,63 @@ model {
 
 #prior for recapture prob
 p ~ dbeta(1, 1)
-   
+
 
 #priors
-int ~ dnorm(0, 0.001)
-# age.beta[1] <- 0
-cohort.beta[1] <- 0
-# site.beta[1] <- 0
-eps.capyear[1] <- 0
+
+int ~ dnorm(0,0.001)
+age.beta[1] <- 0
+birthyear.beta[1] <- 0
+# eps.capyear[1] <- 0
+
+for (u in 2:14){
+  age.beta[u] ~ dnorm(0,0.01)
+}
 # 
-# for (u in 2:14){     #15 age classes but 14 survival periods
-#    age.beta[u] ~ dnorm(0,0.01)              # Priors for age-specific survival
+# for (u in 2:14){
+#   eps.capyear[u] ~ dnorm(0, sigma)
 # }
 
-for (u in 2:14){      #14 birthyears in our dataset
-    cohort.beta[u] ~ dnorm(0,0.01)
- }
-
-# for (u in 2:3){ #3 sites
-#   site.beta[u] ~ dnorm(0, 0.01)
-# }
-# 
-for (u in 2:14){      #capyear
-  eps.capyear[u] ~ dnorm(0, tau.capyear)
+for (u in 2:14){
+  birthyear.beta[u] ~ dunif(0, 1000)
 }
 
-  sigma ~ dunif(0,10) #standard dev
-  tau.capyear <- 1/(sigma*sigma) #precision = 1/variance
+
+tau <- 1/(sigma*sigma)
+sigma ~ dunif(0,100)
 
 
-# Likelihood 
+# Likelihood
 for (i in 1:nind){
    # Define latent state at first capture, we know for sure the animal is alive
       z[i,f[i]] <- 1
-      
-      for (t in (f[i]+1):h[i]){ 
+
+      for (t in (f[i]+1):h[i]){
         # State process
-            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected 
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <-  int + cohort.beta[f[i]] + eps.capyear[capyear[t-1]] #+ age.beta[ageclass[i,t-1]] + site.beta[bs[i]] 
-        # Observation process
-            CH[i,t] ~ dbern(mu2[i,t])
+            logit(phi[i,t-1]) <-  int + age.beta[ageclass[i,t-1]]  + birthyear.beta[birthyear[i]] 
+                                          #+ eps.capyear[capyear[i]]
+
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
             mu2[i,t] <- p * z[i,t]
       } #t
    } #i
 
-
-#derived parameter
-for (i in 1:14){ #cohort
-  # for (j in 1:14){ #ageclass
-      survival[i] <- exp(int+ cohort.beta[i] )/ (1 + exp(int+cohort.beta[i] ))#+ age.beta[j]+ age.beta[j]
-    }                     #delta method to convert from logit back to probability Powell et al. 2007
-#}
-#   for (i in 1:2){
-#   site_diff[i] <- site.beta[3] - site.beta[i]
-#   }
-
+#derived parameters
+    for (j in 1:10){ #ageclass
+      for (i in 1:14){ #birthyear
+      survival[j, i] <- exp(int + age.beta[j] + birthyear.beta[i])/
+                            (1 + exp(int + age.beta[j]+ birthyear.beta[i]))
+      }                     #delta method to convert from logit back to probability Powell et al. 2007
+    }
+      
+#   for (i in 1:3){
+#     for (j in 1:10){
+#     survival_diff[i,j] <- survival[1,j] - survival[i,j]  
+#     }
+# }
 }
+
 

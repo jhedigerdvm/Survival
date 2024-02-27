@@ -21,7 +21,7 @@ for (u in 2:14){
 # }
 
 for (u in 2:14){
-  birthyear.beta[u] ~ dunif(0, 1000)
+  birthyear.beta[u] ~ dnorm(0, 0.001)
 }
 
 
@@ -38,7 +38,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <-  int + age.beta[ageclass[i,t-1]]  + birthyear.beta[birthyear[i]] 
+            logit(phi[i,t-1]) <-  int + age.beta[ageclass[i,t-1]]  + birthyear.beta[birthyear[i, t-1]] 
                                           #+ eps.capyear[capyear[i]]
 
           # Observation process

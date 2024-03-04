@@ -164,4 +164,28 @@ data2$sum.jun.jul.aug.sc<- scale(data2$sum.jun.jul.aug)
 write.csv(data2, './cleaned/caphx.rainfall.nov.oct1.csv', row.names = F)
                     
 
+###########
+#try to merge bcs and weight into caphx 
+ch.rain <- read.csv('./cleaned/caphx.rainfall.nov.oct1.csv', header = T)
+bucks <- read.csv("C:/Users/Joe/Documents/3-R Projects/Growth Curves/clean/nofawns22.csv")
 
+bucks$age <- bucks$year_cap - bucks$year_birth 
+unique(bucks$year_birth)
+
+#remove 2021 born fawns because first capture is also last capture
+bucks<-bucks[bucks$year_birth != '2021',] #remove 2021 cohort because first capture is also last capture
+
+#rename column year cap to year to match capture history format
+bucks <- bucks %>% rename(year = year_cap)
+bucks <- bucks %>% rename(birth_year = year_birth)
+
+bucks <- bucks %>% rename(bs = birthsite)
+bucks <- bucks %>% rename(ageclass = age)
+
+#add weights and bcs to capture history 
+join<- ch.rain %>%  left_join(bucks)
+
+join$weightkg <- join$weight/2.2
+join$bcscm <- join$bcsin * 2.54
+
+write.csv(join, './cleaned/final.ch.csv', row.names = F)

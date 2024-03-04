@@ -1,0 +1,48 @@
+
+model {
+
+#prior for recapture prob
+p ~ dbeta(1, 1)
+
+
+#priors
+
+for (u in 1:14){
+  age.beta[u] ~ dnorm(0,0.01)
+}
+
+weight.beta ~ dnorm(0,0.001)
+
+tau <- 1/(sigma*sigma)
+sigma ~ dunif(0,100)
+
+
+# Likelihood
+for (i in 1:nind){
+   # Define latent state at first capture, we know for sure the animal is alive
+      z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):h[i]){
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <- age.beta[ageclass[i,t-1]] + weight.beta*weight[i,t] 
+                                            
+
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+      } #t
+   } #i
+# 
+# #derived parameters
+#   for (j in 1:100){ #weight sim 
+#     for (i in 1:10){ #ageclass
+#       survival[j,i] <- exp(weight.beta*weight.sim[j] + age.beta[i])/
+#                             (1 + exp(weight.beta*weight.sim[j] + age.beta[i]))
+#       }                     #delta method to convert from logit back to probability Powell et al. 2007
+#   }
+      
+  
+}
+

@@ -8,8 +8,9 @@ library(mcmcr)
 library(viridis)
 library(here)
 
-data<- read.csv('./cleaned/caphx.rainfall.nov.oct1.csv', header = T)
+data<- read.csv('./cleaned/final.ch.csv', header = T)
 
+#take long form and convert into wide for CH matrix
 ch<- pivot_wider(data, names_from = 'year', values_from = 'status', id_cols = 'animal_id' )
 ch<-ch[,-1]
 ch<-as.matrix(ch)
@@ -62,6 +63,12 @@ h <- replace(h, is.infinite(h), 15)
 h
 f-h #check for zero
 
+#add weight and antler vectors
+weight<- pivot_wider(data, names_from = 'year', values_from = 'weight', id_cols = 'animal_id' )
+weight<- as.matrix(weight[,-1])
+
+antlers<- pivot_wider(data, names_from = 'year', values_from = 'bcsin', id_cols = 'animal_id' )
+antlers<- as.matrix(antlers[,-1])
 
 #model eval the effect of site and age on surv and the interaction between the two
 # Specify model in JAGS language

@@ -136,13 +136,23 @@ for(i in 1:dim(z.init)[1]){
   z.init[i,f[i]] <- NA
 }
 
+#function for weight matrix
+weight.init <- matrix(NA, nrow=nrow(ch), ncol=ncol(ch))
+
+for (i in 1:nrow(weight.init)) {
+  for (j in 1:ncol(weight.init)) {
+    if (is.na(weight[i, j])) {
+      weight.init[i, j] <- 1
+    }
+  }
+}
 
 # Bundle data
 jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), weight = weight, 
                   ageclass = ageclass)#capyear=capyear, birthyear = birthyear  bs = bs,weight.sim = weight.sim,
 
 # Initial values
-inits <- function(){list(int = rnorm(1,0,1), z = z.init, 
+inits <- function(){list(int = rnorm(1,0,1), z = z.init, weight=weight.init, 
                          age.beta = rnorm(14,0,1),
                          weight.beta = rnorm(1,0,1))} 
 #eps.capyear = c(NA, rnorm(13,0,1)), eps.birthyear = c(NA, rnorm(13,0,1age.site.beta = c(NA, rnorm(13,0,1)),site.beta = c(NA, rnorm(2,0,1)), 

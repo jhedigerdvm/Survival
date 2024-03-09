@@ -500,7 +500,7 @@ inits <- function(){list(int = rnorm(1,0,1), z = z.init, site.beta = c(NA, rnorm
 parameters <- c('int', 'site.beta', 'age.beta', 'by.rain.beta', 'site.rain.beta', 'site.age.beta', 'p', 'eps.capyear' )
 
 # MCMC settings
-ni <- 6000
+ni <- 10000
 nt <- 1
 nb <- 1000
 nc <- 3
@@ -511,3 +511,117 @@ cjs.site.rain.age <- jagsUI(jags.data, inits, parameters, "cjs.site.rain.age.jag
 
 print(cjs.site.rain.age)
 MCMCtrace(cjs.site.rain.age)
+
+
+
+#survival as a function of birth year rain, birth site, age, and the interaction bt bs and birthyear rain
+# Specify model in JAGS language
+set.seed(100)
+sink("cjs.sitexage.jags")
+cat("
+model {
+
+#prior for recapture prob
+p ~ dbeta(1, 1)
+
+
+#priors
+
+int ~ dnorm(0,0.01)
+
+site.beta[1] <- 0
+age.beta[1]<- 0
+site.age.beta[1]<-0
+eps.capyear[1] <- 0
+
+for (u in 2:3){
+  site.beta[u] ~ dnorm(0,0.01)
+}
+
+for (u in 2:14){
+  age.beta[u] ~ dnorm(0,0.01)
+}
+
+
+for (u in 2:14){ # interaction between birth site and age
+  site.age.beta[u] ~ dnorm(0,0.0001)
+}
+
+by.rain.beta ~ dnorm(0,0.001)
+
+for (u in 2:14){
+eps.capyear[u] ~ dnorm(0, sigma)
+}
+
+tau <- 1/(sigma*sigma)
+sigma ~ dunif(0,100)
+
+
+# Likelihood
+for (i in 1:nind){
+   # Define latent state at first capture, we know for sure the animal is alive
+      z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):h[i]){
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + age.beta[ageclass[i,t-1]] + by.rain.beta*by.rain[i,t]  
+                                                                                                                + site.age.beta[bs[i]]*ageclass[i,t-1]
+                                                                                                                + eps.capyear[capyear[i]]
+
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+      } #t
+   } #i
+
+# #derived parameters
+#   for (i in 1:3){ #site
+#     for (j in 1:10){ #ageclass
+#       survival[i,j] <- exp(int + site.beta[i] + age.beta[j] + age.site.beta[i]*j)/
+#                             (1 + exp(int + site.beta[i] + age.beta[j] + age.site.beta[i]*j))
+#       }                     #delta method to convert from logit back to probability Powell et al. 2007
+#   }
+
+#   for (i in 1:3){
+#     for (j in 1:10){
+#     survival_diff[i,j] <- survival[1,j] - survival[i,j]  
+#     }
+# }
+
+}
+",fill = TRUE)
+sink()
+
+
+#Function for latent state
+z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+
+for(i in 1:dim(z.init)[1]){
+  z.init[i, f[i]:h[i]] <- 1
+  z.init[i,f[i]] <- NA
+}
+
+
+# Bundle data
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs, ageclass = ageclass, by.rain = by.rain, capyear = capyear)
+
+# Initial values
+inits <- function(){list(int = rnorm(1,0,1), z = z.init, site.beta = c(NA, rnorm(2,0,1)), by.rain.beta = rnorm(1,0,1), site.age.beta = c(NA, rnorm(13,0,1)),
+                         age.beta = c(NA, rnorm(13,0,1)), eps.capyear = c(NA, rnorm(13,0,1)))} # site.rain.beta = c(NA, rnorm(2,0,
+
+parameters <- c('int', 'site.beta', 'age.beta', 'by.rain.beta', 'site.rain.beta', 'site.age.beta', 'p', 'eps.capyear' )
+
+# MCMC settings
+ni <- 5000
+nt <- 1
+nb <- 1000
+nc <- 3
+
+# Call JAGS from R (BRT 3 min)
+cjs.sitexage <- jagsUI(jags.data, inits, parameters, "cjs.sitexage.jags", n.chains = nc,
+                            n.thin = nt, n.iter = ni, n.burnin = nb, parallel = FALSE)
+
+print(cjs.sitexage)
+MCMCtrace(cjs.sitexage)

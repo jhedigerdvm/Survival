@@ -430,14 +430,14 @@ for (u in 2:3){ #interaction between birth year rain and site
 }
 
 for (u in 2:14){ # interaction between birth site and age
-  site.age.beta[u] ~ dnorm(0,0.001)
+  site.age.beta[u] ~ dnorm(0,0.0001)
 }
 
 by.rain.beta ~ dnorm(0,0.001)
-
-for (u in 2:14){
-eps.capyear[u] ~ dnorm(0, sigma)
-}
+# 
+# for (u in 2:14){
+# eps.capyear[u] ~ dnorm(0, sigma)
+# }
 
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,100)
@@ -454,7 +454,7 @@ for (i in 1:nind){
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
             logit(phi[i,t-1]) <- int + site.beta[bs[i]] + age.beta[ageclass[i,t-1]] + by.rain.beta*by.rain[i,t] + site.rain.beta[bs[i]]*by.rain[i,t] 
                                                                                                                 + site.age.beta[bs[i]]*ageclass[i,t-1]
-                                                                                                                + eps.capyear[capyear[i]]
+                                                                                                                # + eps.capyear[capyear[i]]
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -495,12 +495,12 @@ jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch),  bs = bs, ageclass = a
 
 # Initial values
 inits <- function(){list(int = rnorm(1,0,1), z = z.init, site.beta = c(NA, rnorm(2,0,1)), by.rain.beta = rnorm(1,0,1), site.age.beta = c(NA, rnorm(13,0,1)),
-                         age.beta = c(NA, rnorm(13,0,1)), site.rain.beta = c(NA, rnorm(2,0,1)), eps.capyear = c(NA, rnorm(13,0,1)))} #
+                         age.beta = c(NA, rnorm(13,0,1)), site.rain.beta = c(NA, rnorm(2,0,1)))} # eps.capyear = c(NA, rnorm(13,0,1))
 
 parameters <- c('int', 'site.beta', 'age.beta', 'by.rain.beta', 'site.rain.beta', 'site.age.beta', 'p', 'eps.capyear' )
 
 # MCMC settings
-ni <- 3000
+ni <- 6000
 nt <- 1
 nb <- 1000
 nc <- 3

@@ -189,3 +189,20 @@ join$weightkg <- join$weight/2.2
 join$bcscm <- join$bcsin * 2.54
 
 write.csv(join, './cleaned/final.ch.csv', row.names = F)
+
+data<- read.csv("./cleaned/final.ch.csv", header = T)
+rain<- read.csv("./cleaned/rainfall_2022.csv", header = T)
+
+#create column in final.ch that contains birth year rain column 
+rain <- rain %>% rename(birth_year = year)
+rain <- rain %>% rename(bs = birthsite)
+
+
+data1 <- merge(data, rain[,c("birth_year", "bs", "annual")], by = c("birth_year", "bs"), all.x = TRUE)
+unique(data1$annual.y)
+
+data1 <- data1 %>% rename(by.rain = annual.y)
+data1 <- data1 %>% rename(cy.rain = annual.x)
+data1$by.rain.sc <- scale(data1$by.rain)
+
+write.csv(data1, './cleaned/final.ch1.csv', row.names = F)

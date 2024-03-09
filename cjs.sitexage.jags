@@ -7,7 +7,7 @@ p ~ dbeta(1, 1)
 
 #priors
 
-int ~ dnorm(0,0.01)
+int ~ dnorm(0,0.001)
 
 site.beta[1] <- 0
 age.beta[1]<- 0
@@ -15,16 +15,16 @@ site.age.beta[1]<-0
 eps.capyear[1] <- 0
 
 for (u in 2:3){
-  site.beta[u] ~ dnorm(0,0.01)
+  site.beta[u] ~ dnorm(0,0.001)
 }
 
 for (u in 2:14){
-  age.beta[u] ~ dnorm(0,0.01)
+  age.beta[u] ~ dnorm(0,0.001)
 }
 
 
 for (u in 2:14){ # interaction between birth site and age
-  site.age.beta[u] ~ dnorm(0,0.0001)
+  site.age.beta[u] ~ dnorm(0,0.001)
 }
 
 by.rain.beta ~ dnorm(0,0.001)
@@ -34,7 +34,7 @@ eps.capyear[u] ~ dnorm(0, sigma)
 }
 
 tau <- 1/(sigma*sigma)
-sigma ~ dunif(0,100)
+sigma ~ dunif(0,1000)
 
 
 # Likelihood
@@ -46,9 +46,11 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + site.beta[bs[i]] + age.beta[ageclass[i,t-1]] + by.rain.beta*by.rain[i,t]  
-                                                                                                                + site.age.beta[bs[i]]*ageclass[i,t-1]
-                                                                                                                + eps.capyear[capyear[i]]
+            logit(phi[i,t-1]) <- int + site.beta[bs[i]]
+                                      + age.beta[ageclass[i,t-1]]
+                                      + by.rain.beta*by.rain[i,t]
+                                      + site.age.beta[bs[i]]*ageclass[i,t-1]      #interaction
+                                      + eps.capyear[capyear[i]]
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -66,7 +68,7 @@ for (i in 1:nind){
 
 #   for (i in 1:3){
 #     for (j in 1:10){
-#     survival_diff[i,j] <- survival[1,j] - survival[i,j]  
+#     survival_diff[i,j] <- survival[1,j] - survival[i,j]
 #     }
 # }
 

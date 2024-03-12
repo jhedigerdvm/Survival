@@ -1,3 +1,5 @@
 .RData.TMP.psd filter=lfs diff=lfs merge=lfs -text
 scripts/finale.R.psd filter=lfs diff=lfs merge=lfs -text
+scripts/finale.R filter=lfs diff=lfs merge=lfs -text
+.RData.TMP filter=lfs diff=lfs merge=lfs -text
 .RDataTmp filter=lfs diff=lfs merge=lfs -text

@@ -6,15 +6,12 @@ p ~ dbeta(1, 1)
 
 #priors
 # 
-# for (u in 1:14){
-#   age.beta[u] ~ dnorm(0,0.01)
+# for (u in 1:489){
+#   for (j in 1:15){  #prior for missing weights
+#   weight.beta[u,j] ~ dnorm(0,0.001)
+#   }
 # }
-
-for (u in 1:489){
-  for (j in 1:15){  #prior for missing weights
-  weight.beta[u,j] ~ dnorm(0,0.001)
-  }
-}
+weight.beta ~ dnorm(0,0.0001)
 
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,100)
@@ -25,11 +22,11 @@ for (i in 1:nind){
    # Define latent state at first capture, we know for sure the animal is alive
       z[i,f[i]] <- 1
 
-      for (t in (f[i]+1):h[i]){
+      for (t in (f[i]+1):nocc){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- weight.beta*weight[i,t-1] #age.beta[ageclass[i,t-1]] + 
+            logit(phi[i,t-1]) <- weight.beta*weight[i,t-1] 
                                             
 
           # Observation process
@@ -37,14 +34,7 @@ for (i in 1:nind){
             mu2[i,t] <- p * z[i,t]
       } #t
    } #i
-# 
-# #derived parameters
-#   for (j in 1:100){ #weight sim 
-#     for (i in 1:10){ #ageclass
-#       survival[j,i] <- exp(weight.beta*weight.sim[j] + age.beta[i])/
-#                             (1 + exp(weight.beta*weight.sim[j] + age.beta[i]))
-#       }                     #delta method to convert from logit back to probability Powell et al. 2007
-#   }
+
       
   
 }

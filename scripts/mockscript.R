@@ -1,17 +1,19 @@
-# # DEFINING THE DATA:
-# myData <-  matrix (
-#   c(64.0, 62.3,   NA,   NA, 64.8, 57.5,   NA, 70.2, 63.9, 71.1, 
-#     66.5, 68.1,   NA, 75.1, 64.6, 69.2, 68.1,   NA, 63.2,   NA, 
-#     64.1, 71.5, 76.0, 69.7, 73.3, 61.7, 66.4, 65.7, 68.3, 66.9,
-#     136.4,215.1,173.6,117.3,123.3, 96.5,178.3,191.1,158.0,193.9, 
-#     127.1,147.9,119.0,204.4,143.4,124.4,140.9,164.7,139.8,110.2, 
-#     134.1,193.6,180.0,155.0,188.2,187.4,139.2,147.9,178.6,111.1) ,
-#   nrow=30  )
-# colnames(myData) <- c("height","weight")
-# myData <- as.data.frame(myData)
+
+# DEFINING THE DATA:
+myData <-  matrix (
+  c(64.0, 62.3,   NA,   NA, 64.8, 57.5,   NA, 70.2, 63.9, 71.1, 
+    66.5, 68.1,   NA, 75.1, 64.6, 69.2, 68.1,   NA, 63.2,   NA, 
+    64.1, 71.5, 76.0, 69.7, 73.3, 61.7, 66.4, 65.7, 68.3, 66.9,
+    136.4,215.1,173.6,117.3,123.3, 96.5,178.3,191.1,158.0,193.9, 
+    127.1,147.9,119.0,204.4,143.4,124.4,140.9,164.7,139.8,110.2, 
+    134.1,193.6,180.0,155.0,188.2,187.4,139.2,147.9,178.6,111.1) ,
+  nrow=30  )
+colnames(myData) <- c("height","weight")
+myData <- as.data.frame(myData)
+
 
 # this index will help setup priors and let us look at posterior values for missing x's
-mIdx <- ifelse( is.na(data$weight) , 1 , 0)
+mIdx <- ifelse( is.na(myData$height) , 1 , 0)
 mIdx <- sapply( 1:length(mIdx), 
                 function(n) mIdx[n]*sum(mIdx[1:n]))
 # result: mIdx = 
@@ -20,30 +22,30 @@ mIdx <- sapply( 1:length(mIdx),
 #              0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 # add missing index to myData
-data$mIdx <- mIdx
+myData$mIdx <- mIdx
 
 
 
 # DATA PREP:
-x = data[,"weight"]
-# x = myData[,"height"]
-# meanY = mean(y,na.rm=TRUE) #mean weight
-meanX = mean(x,na.rm=TRUE) #mean weight
-# sdY = sd(y,na.rm=TRUE)     
+y = myData[,"weight"]
+x = myData[,"height"]
+meanY = mean(y,na.rm=TRUE) 
+meanX = mean(x,na.rm=TRUE) 
+sdY = sd(y,na.rm=TRUE)     
 sdX = sd(x,na.rm=TRUE)
-Ntotal = length(x)
-zx <- NULL
+Ntotal = length(y)
+zx <- zy <- NULL
 for ( i in 1:Ntotal ) {
   zx[i] <- ifelse ( mIdx[i]==0, ( x[i] - meanX ) / sdX , x[i] ) # skips NA's
-  # zy[i] <- ( y[i] - meanY ) / sdY
+  zy[i] <- ( y[i] - meanY ) / sdY
 }
 # Specify the data list for JAGS
 dataList = list(
   zx = zx ,
-  # zy = zy ,
-  # meanY = meanY ,
+  zy = zy ,
+  meanY = meanY ,
   meanX = meanX ,
-  # sdY = sdY ,
+  sdY = sdY ,
   sdX = sdX ,
   Ntotal = Ntotal
 )

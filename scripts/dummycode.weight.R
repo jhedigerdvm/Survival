@@ -14,13 +14,6 @@ ch<- pivot_wider(data, names_from = 'year', values_from = 'status', id_cols = 'i
 ch<-ch[,-1]
 ch<-as.matrix(ch)
 
-# known.fate <- ch #known fate matrix with 2 indentifying deaths associated with capture or harvest
-# 
-# #create capture history with just 1s and 0s, remove 'known fates'
-# indices <- which(ch == 2, arr.ind = TRUE) #34 individuals with known fates 
-# ch[indices] <- 1
-
-
 # Create vector with the occasion each indiv is marked, this gets weird because we know each individual was caught
 #at birth, but we are starting at the second capture occasion
 get.first <- function(x) min(which(x!=0)) #x! identifies when x is not equal to zero
@@ -30,6 +23,21 @@ f <- apply(ch, 1, get.first)
 #add weight and antler vectors
 weight<- pivot_wider(data, names_from = 'year', values_from = 'weight', id_cols = 'id' )
 weight<- as.matrix(weight[,-1])
+
+
+#Function for latent state
+z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+
+for(i in 1:dim(z.init)[1]){
+  z.init[i, f[i]:7] <- 1
+  z.init[i,f[i]] <- NA
+}
+# 
+#function for weight matrix
+weight.init <- weight
+weight.init[is.na(weight.init)]<-mean(data$weight, na.rm = T)
+weight.init[!is.na(weight)]<-NA
+
 
 
 
@@ -43,13 +51,13 @@ model {
 p ~ dbeta(1, 1)
 
 #priors
-# 
-# for (u in 1:489){
-#   for (j in 1:15){  #prior for missing weights
-#   weight.beta[u,j] ~ dnorm(0,0.001)
-#   }
-# }
-weight.beta ~ dnorm(0,0.0001)
+
+for (u in 1:3){
+  for (j in 1:7){  #prior for missing weights
+  weight.beta[u,j] ~ dnorm(0,0.0001)
+     }
+}
+
 
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,100)
@@ -80,27 +88,12 @@ for (i in 1:nind){
 sink()
 
 
-#Function for latent state
-z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
-
-for(i in 1:dim(z.init)[1]){
-  z.init[i, f[i]:7] <- 1
-  z.init[i,f[i]] <- NA
-}
-# 
-#function for weight matrix
-weight.init <- weight
-weight.init[is.na(weight.init)]<-mean(data$weight, na.rm = T)
-weight.init[!is.na(weight)]<-NA
-
 
 # Bundle data
 jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = weight)#capyear=capyear, birthyear = birthyear  bs = bs,weight.sim = weight.sim,ageclass = ageclass
 
 # Initial values
-inits <- function(){list(z = z.init, weight.beta = rnorm(1,0,1))} 
-
-#int = rnorm(1,0,1), age.beta = rnorm(14,0,1),eps.capyear = c(NA, rnorm(13,0,1)), eps.birthyear = c(NA, rnorm(13,0,1age.site.beta = c(NA, rnorm(13,0,1)),site.beta = c(NA, rnorm(2,0,1)), 
+inits <- function(){list(z = z.init, weight = weight.init, weight.beta = rnorm(7,0,1))} 
 
 parameters <- c('weight.beta')#'int', 'age.beta', , 'p','survival'
 

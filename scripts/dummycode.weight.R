@@ -90,7 +90,7 @@ for(i in 1:dim(z.init)[1]){
 # 
 #function for weight matrix
 weight.init <- weight
-weight.init[is.na(weight.init)]<-1
+weight.init[is.na(weight.init)]<-mean(data$weight, na.rm = T)
 weight.init[!is.na(weight)]<-NA
 
 

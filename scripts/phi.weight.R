@@ -8,7 +8,7 @@ library(mcmcr)
 library(viridis)
 library(here)
 
-data<- read.csv('./cleaned/final.ch.csv', header = T)
+data<- read.csv('./cleaned/final.ch1.csv', header = T)
 
 #take long form and convert into wide for CH matrix
 ch<- pivot_wider(data, names_from = 'year', values_from = 'status', id_cols = 'animal_id' )

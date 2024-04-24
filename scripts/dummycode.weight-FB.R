@@ -51,13 +51,14 @@ model {
 p ~ dbeta(1, 1)
 
 #priors
-# 
-# for (u in 1:3){
-#   for (j in 1:7){  #prior for missing weights
-#   weight.beta[u,j] ~ dnorm(0,0.0001)
-#      }
-# }
-weight.beta ~ dnorm(0,0.0001)
+
+for (j in 1:nocc){
+ weight.beta[j] ~ dnorm(0,0.0001)
+  for (u in 1:nind){  #prior for missing weights
+     weight[u,j] ~ dnorm(0,0.0001)
+     }
+}
+
 
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,100)
@@ -65,15 +66,15 @@ sigma ~ dunif(0,100)
 
 # Likelihood
 for (i in 1:nind){
-   # Define latent state at first capture, we know for sure the animal is alive
-      z[i,f[i]] <- 1
+
+  z[i,f[i]] <- 1      # Define latent state at first capture, we know for sure the animal is alive
 
       for (t in (f[i]+1):nocc){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- weight.beta*weight[i,t-1] 
-                                            
+            logit(phi[i,t-1]) <- weight.beta[ t-1 ] * weight[ i, t-1 ]
+                                                           
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -93,7 +94,7 @@ sink()
 jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = weight)#capyear=capyear, birthyear = birthyear  bs = bs,weight.sim = weight.sim,ageclass = ageclass
 
 # Initial values
-inits <- function(){list(z = z.init, weight = weight.init, weight.beta = rnorm(1,0,1))} 
+inits <- function(){list(z = z.init, weight = weight.init, weight.beta = rnorm(7,0,1))} 
 
 parameters <- c('weight.beta')#'int', 'age.beta', , 'p','survival'
 
@@ -108,3 +109,4 @@ cjs.weight <- jagsUI(jags.data, inits, parameters, "cjs-weight.jags", n.chains =
                      n.thin = nt, n.iter = ni, n.burnin = nb, parallel = FALSE)
 
 print(cjs.weight)
+MCMCtrace(cjs.weight)

@@ -6,7 +6,7 @@ p ~ dbeta(1, 1)
 
 #priors
 
-for (u in 1:3){                 #for u individuals 1 to 489
+for (u in 1:nind){                 #for u individuals 1 to 489
   for (j in 1:occasions[u]){  #for number of NA occasions for individual u
   weight[u,NA_indices[u,j]] ~ dnorm(0,0.0001)         #in weight.init, row u, column with NA, this code is just trying to find the column with NAs
      }
@@ -20,11 +20,11 @@ sigma ~ dunif(0,100)
 
 
 # Likelihood
-for (i in 1:3){
+for (i in 1:nind){
    # Define latent state at first capture, we know for sure the animal is alive
       z[i,f[i]] <- 1
 
-      for (t in (f[i]+1):15){
+      for (t in (f[i]+1):nocc){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             logit(phi[i,t-1]) <- weight.beta*weight[i,t-1] 

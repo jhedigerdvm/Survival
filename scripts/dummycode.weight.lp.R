@@ -15,7 +15,7 @@ ch<-ch[,-1]
 ch<-as.matrix(ch)
 dim(ch)
 
-ch <- ch[c(1:3),]
+ch <- ch[c(7:10),c(1:9)]
 
 # Create vector with the occasion each indiv is marked, this gets weird because we know each individual was caught
 #at birth, but we are starting at the second capture occasion
@@ -25,14 +25,14 @@ f <- apply(ch, 1, get.first)
 
 #add weight and antler vectors
 weight<- pivot_wider(data, names_from = 'year', values_from = 'weight', id_cols = 'animal_id' )
-weight<- as.matrix(weight[c(1:3),-1])
+weight<- as.matrix(weight[c(7:10),c(2:10)])
 
 
 #Function for latent state
 z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
 
 for(i in 1:dim(z.init)[1]){
-  z.init[i, f[i]:15] <- 1
+  z.init[i, f[i]:ncol(ch)] <- 1
   z.init[i,f[i]] <- NA
 }
 
@@ -47,7 +47,7 @@ occasions <- rowSums(is.na(weight)) # number of NA occasions for individual
 # weight <- as.data.frame(weight)
 indices <- as.data.frame(which(is.na(weight), arr.ind=T))
 indices <- indices %>% arrange(row) %>%  group_by(row) %>%  mutate(n=1:n()) %>% ungroup() #arrange orders the "rows" , group by may not be necessary, mutate creates a new column inserting the number for that individual 
-NA_indices <- matrix(NA, nrow=3, ncol=15)
+NA_indices <- matrix(NA, nrow=nrow(ch), ncol=ncol(ch))
 for(i in 1:nrow(indices)){
   NA_indices[indices[[i,1]],indices[[i,3]]] <- indices[[i,2]]
 }
@@ -91,7 +91,7 @@ p ~ dbeta(1, 1)
 
 #priors
 
-for (u in 1:3){                 #for u individuals 1 to 489
+for (u in 1:nind){                 #for u individuals 1 to 489
   for (j in 1:occasions[u]){  #for number of NA occasions for individual u
   weight[u,NA_indices[u,j]] ~ dnorm(0,0.0001)         #in weight.init, row u, column with NA, this code is just trying to find the column with NAs
      }
@@ -105,11 +105,11 @@ sigma ~ dunif(0,100)
 
 
 # Likelihood
-for (i in 1:3){
+for (i in 1:nind){
    # Define latent state at first capture, we know for sure the animal is alive
       z[i,f[i]] <- 1
 
-      for (t in (f[i]+1):15){
+      for (t in (f[i]+1):nocc){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             logit(phi[i,t-1]) <- weight.beta*weight[i,t-1] 
@@ -131,8 +131,8 @@ sink()
 
 
 # Bundle data
-jags.data <- list(ch = ch, f = f,  weight = weight, 
-                  occasions=occasions, NA_indices=NA_indices)#nind = nrow(ch), nocc = ncol(ch), h = h,capyear=capyear, birthyear = birthyear  bs = bs,weight.sim = weight.sim,ageclass = ageclass
+jags.data <- list(ch = ch, f = f,  weight = weight, nind = nrow(ch), nocc = ncol(ch), 
+                  occasions=occasions, NA_indices=NA_indices)#h = h,capyear=capyear, birthyear = birthyear  bs = bs,weight.sim = weight.sim,ageclass = ageclass
 
 # Initial values
 inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,10), z=z.init)} #, z.init

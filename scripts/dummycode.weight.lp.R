@@ -15,7 +15,7 @@ ch<-ch[,-1]
 ch<-as.matrix(ch)
 dim(ch)
 
-ch <- ch[c(7:10),c(1:9)]
+ch <- ch[c(1:5),c(1:15)]
 
 # Create vector with the occasion each indiv is marked, this gets weird because we know each individual was caught
 #at birth, but we are starting at the second capture occasion
@@ -25,7 +25,7 @@ f <- apply(ch, 1, get.first)
 
 #add weight and antler vectors
 weight<- pivot_wider(data, names_from = 'year', values_from = 'weight', id_cols = 'animal_id' )
-weight<- as.matrix(weight[c(7:10),c(2:10)])
+weight<- as.matrix(weight[c(1:5),c(2:16)])
 
 
 #Function for latent state
@@ -42,15 +42,29 @@ weight.init <- weight
 weight.init[is.na(weight.init)]<-mean(data$weight, na.rm = T)
 weight.init[!is.na(weight)]<-NA
 
+for (i in 1:dim(weight.init)[1]){
+  weight.init[,f[i]]<- NA
+}
+
 occasions <- rowSums(is.na(weight)) # number of NA occasions for individual
 
 # weight <- as.data.frame(weight)
+weight <- as.data.frame(weight)
 indices <- as.data.frame(which(is.na(weight), arr.ind=T))
 indices <- indices %>% arrange(row) %>%  group_by(row) %>%  mutate(n=1:n()) %>% ungroup() #arrange orders the "rows" , group by may not be necessary, mutate creates a new column inserting the number for that individual 
-NA_indices <- matrix(NA, nrow=nrow(ch), ncol=ncol(ch))
+NA_indices <- matrix(NA, nrow=5, ncol=15)
 for(i in 1:nrow(indices)){
   NA_indices[indices[[i,1]],indices[[i,3]]] <- indices[[i,2]]
 }
+# 
+# weight <- as.data.frame(weight)
+# indices <- as.data.frame(which(is.na(weight), arr.ind=T))
+# indices <- indices %>% arrange(row) %>%  group_by(row) %>%  mutate(n=1:n()) %>% ungroup()
+# NA_indices <- matrix(NA, nrow=5, ncol=15)
+# for(i in 1:40){
+#   NA_indices[indices[[i,1]],indices[[i,3]]] <- indices[[i,2]]
+# }
+
 
 # 
 # NA_indices <- as.data.frame(which(is.na(weight), arr.ind = TRUE))
@@ -93,9 +107,10 @@ p ~ dbeta(1, 1)
 
 for (u in 1:nind){                 #for u individuals 1 to 489
   for (j in 1:occasions[u]){  #for number of NA occasions for individual u
-  weight[u,NA_indices[u,j]] ~ dnorm(0,0.0001)         #in weight.init, row u, column with NA, this code is just trying to find the column with NAs
+  weight[u,NA_indices[u,j]] ~ dnorm(0,0.0001)   #in weight.init, row u, column with NA, this code is just trying to find the column with NAs
      }
 }
+
 
 weight.beta ~ dnorm(0,0.0001)
 

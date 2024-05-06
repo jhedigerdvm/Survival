@@ -8,9 +8,10 @@ p ~ dbeta(1, 1)
 
 for (u in 1:nind){                 #for u individuals 1 to 489
   for (j in 1:occasions[u]){  #for number of NA occasions for individual u
-  weight[u,NA_indices[u,j]] ~ dnorm(0,0.0001)         #in weight.init, row u, column with NA, this code is just trying to find the column with NAs
+  weight[u,NA_indices[u,j]] ~ dnorm(0,0.0001)   #in weight.init, row u, column with NA, this code is just trying to find the column with NAs
      }
 }
+
 
 weight.beta ~ dnorm(0,0.0001)
 

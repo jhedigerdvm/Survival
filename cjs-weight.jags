@@ -2,19 +2,28 @@
 model {
 
 #prior for recapture prob
-p ~ dbeta(1, 1)
+p ~ dbeta( 1 , 1 )
 
 #priors
+#int ~ dnorm( 0 , 0.0001 )
+# bs.beta[1] <- 0
+#ageclass.beta[1] <- 0
 
-for (u in 1:nind){                 #for u individuals 1 to 489
-  for (j in 1:occasions[u]){  #for number of NA occasions for individual u
-  weight[u,NA_indices[u,j]] ~ dnorm(0,0.0001)   #in weight.init, row u, column with NA, this code is just trying to find the column with NAs
+for (u in 1:nind){
+  for (j in 1:occasions[u]){  #prior for missing weights
+  weight[u,NA_indices[u,j]] ~ dnorm( 0 , 0.0001 )
      }
 }
 
+weight.beta ~ dnorm( 0 , 0.0001 )
 
-weight.beta ~ dnorm(0,0.0001)
+for (u in 1:15){                              #prior for ageclass
+    ageclass.beta[u] ~ dnorm( 0 , 0.0001 )
+  }
 
+# for (u in 2:3){                               #prior for birth site
+#   bs.beta[u] ~ dnorm( 0 , 0.0001 )
+# }
 
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,100)
@@ -28,8 +37,8 @@ for (i in 1:nind){
       for (t in (f[i]+1):nocc){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-            logit(phi[i,t-1]) <- weight.beta*weight[i,t-1] 
-            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <- weight.beta*weight[i,t-1] + ageclass.beta[ageclass[i,t-1]] #+ bs.beta[bs[i]]int + 
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  
                                             
 
           # Observation process

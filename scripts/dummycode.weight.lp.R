@@ -15,47 +15,65 @@ ch<-ch[,-1]
 ch<-as.matrix(ch)
 dim(ch)
 
-ch <- ch[c(1:5),c(1:15)]
+ch <- ch[c(1:3),c(1:15)]
+
+
+ch1 <- matrix(c(1,1,1,1,1,1,1,0,1,0,0,0,0,0,0,
+                1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,
+                1,1,1,1,1,0,1,1,0,0,0,0,0,0,0),
+              nrow = 3, ncol = 15, byrow = T)
+
+weight1 <- matrix(c(135,145,156,167,178,188,NA,NA,200,NA,NA,NA,NA,NA,NA,
+                    124,134,145,156,167,178,189,199,199,187,NA,NA,NA,NA,NA,
+                    122,134,134,145,166,NA,188,167,NA,NA,NA,NA,NA,NA,NA),
+                  nrow = 3, ncol = 15, byrow = T)
+
+
 
 # Create vector with the occasion each indiv is marked, this gets weird because we know each individual was caught
 #at birth, but we are starting at the second capture occasion
 get.first <- function(x) min(which(x!=0)) #x! identifies when x is not equal to zero
-f <- apply(ch, 1, get.first) 
+f <- apply(ch1, 1, get.first) 
 
 
 #add weight and antler vectors
 weight<- pivot_wider(data, names_from = 'year', values_from = 'weight', id_cols = 'animal_id' )
-weight<- as.matrix(weight[c(1:5),c(2:16)])
+weight<- as.matrix(weight[c(1:3),c(2:16)])
 
 
 #Function for latent state
-z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+z.init <- matrix(NA, nrow = nrow(ch1), ncol = ncol(ch1))
 
 for(i in 1:dim(z.init)[1]){
-  z.init[i, f[i]:ncol(ch)] <- 1
+  z.init[i, f[i]:ncol(ch1)] <- 1
   z.init[i,f[i]] <- NA
 }
 
 # 
 #function for weight matrix
-weight.init <- weight
+weight.init <- weight1
 weight.init[is.na(weight.init)]<-mean(data$weight, na.rm = T)
-weight.init[!is.na(weight)]<-NA
+weight.init[!is.na(weight1)]<-NA
 
 for (i in 1:dim(weight.init)[1]){
   weight.init[,f[i]]<- NA
 }
 
-occasions <- rowSums(is.na(weight)) # number of NA occasions for individual
 
+
+occasions <- rowSums(is.na(weight1)) # number of NA occasions for individual
+
+# # weight <- as.data.frame(weight)
 # weight <- as.data.frame(weight)
-weight <- as.data.frame(weight)
-indices <- as.data.frame(which(is.na(weight), arr.ind=T))
-indices <- indices %>% arrange(row) %>%  group_by(row) %>%  mutate(n=1:n()) %>% ungroup() #arrange orders the "rows" , group by may not be necessary, mutate creates a new column inserting the number for that individual 
-NA_indices <- matrix(NA, nrow=5, ncol=15)
-for(i in 1:nrow(indices)){
-  NA_indices[indices[[i,1]],indices[[i,3]]] <- indices[[i,2]]
-}
+# indices <- as.data.frame(which(is.na(weight), arr.ind=T))
+# indices <- indices %>% arrange(row) %>%  group_by(row) %>%  mutate(n=1:n()) %>% ungroup() #arrange orders the "rows" , group by may not be necessary, mutate creates a new column inserting the number for that individual 
+NA_indices <- matrix(c(7,8,10,11,12,13,14,15,NA, NA,NA,NA,NA,NA,NA,
+                       12,13,14,15,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,
+                       6,9,10,11,12,13,14,15,NA,NA,NA,NA,NA,NA,NA), 
+                     nrow=3, ncol=15, byrow = T) #rows of individuals, columns of capture occasions 
+# for(i in 1:nrow(indices)){
+#   NA_indices[indices[[i,1]],indices[[i,3]]] <- indices[[i,2]]
+# }
 # 
 # weight <- as.data.frame(weight)
 # indices <- as.data.frame(which(is.na(weight), arr.ind=T))
@@ -92,7 +110,6 @@ for(i in 1:nrow(indices)){
 # h <- replace(h, is.infinite(h), 15)
 # h
 # f-h #check for zero
-
 
 #####################################33
 set.seed(100)
@@ -146,7 +163,7 @@ sink()
 
 
 # Bundle data
-jags.data <- list(ch = ch, f = f,  weight = weight, nind = nrow(ch), nocc = ncol(ch), 
+jags.data <- list(ch = ch1, f = f,  weight = weight1, nind = nrow(ch1), nocc = ncol(ch1), 
                   occasions=occasions, NA_indices=NA_indices)#h = h,capyear=capyear, birthyear = birthyear  bs = bs,weight.sim = weight.sim,ageclass = ageclass
 
 # Initial values

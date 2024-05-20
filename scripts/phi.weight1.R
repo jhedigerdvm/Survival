@@ -174,14 +174,14 @@ inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,1), z=kno
 parameters <- c('int', 'bs.beta', 'weight.beta', 'ageclass.beta', 'eps.capyear')#
 
 # MCMC settings
-ni <- 40000
+ni <- 100000
 nt <- 10
-nb <- 30000
+nb <- 80000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
 cjs.weight <- jagsUI(jags.data, inits, parameters, "cjs-weight.jags", n.chains = nc,
                      n.thin = nt, n.iter = ni, n.burnin = nb, parallel = T)
-
+traceplot(cjs.weight)
 print(cjs.weight)
 MCMCtrace(cjs.weight)

@@ -1,0 +1,25 @@
+
+model {
+# Priors
+ for (i in 1:n.groups){		
+    alpha[i] ~ dnorm(mu.int, tau.int)	    # Random intercepts
+    beta[i] ~ dnorm(mu.slope, tau.slope)  # Random slopes
+ }
+
+ mu.int ~ dnorm(0, 0.001)		# Mean hyperparameter for random intercepts
+ tau.int <- 1 / (sigma.int * sigma.int)  #Precision term
+ sigma.int ~ dunif(0, 100)		# SD hyperparameter for random intercepts
+
+ mu.slope ~ dnorm(0, 0.001)		# Mean hyperparameter for random slopes
+ tau.slope <- 1 / (sigma.slope * sigma.slope)   #Precision term
+ sigma.slope ~ dunif(0, 100)		# SD hyperparameter for slopes
+
+ tau <- 1 / ( sigma * sigma)		# Residual precision
+ sigma ~ dunif(0, 100)			# Residual standard deviation
+
+# Likelihood
+ for (i in 1:n) {
+    mass[i] ~ dnorm(mu[i], tau)         #mass represents our data
+    mu[i] <- alpha[pop[i]] + beta[pop[i]]* length[i]    #mu represents the predictions
+ }
+}

@@ -111,7 +111,7 @@ int ~ dnorm( 0 , 0.0001 )
 
 bs.beta[1] <- 0
 ageclass.beta[1] <- 0
-eps.capyear[1] <- 0
+# eps.capyear[1] <- 0
 
 for (u in 1:nind){
   for (j in 1:occasions[u]){  #prior for missing weights
@@ -129,9 +129,9 @@ for (u in 2:3){                               #prior for birth site
   bs.beta[u] ~ dnorm( 0 , 0.0001 )
 }
 
-for (u in 2:15){
-  eps.capyear[u] ~ dnorm(0, sigma)
-}
+# for (u in 2:15){
+#   eps.capyear[u] ~ dnorm(0, tau)
+# }
 
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,100)
@@ -145,7 +145,7 @@ for (i in 1:nind){
       for (t in (f[i]+1):nocc){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-            logit(phi[i,t-1]) <- int + weight.beta*weight[i,t-1] + ageclass.beta[ageclass[i,t-1]] + bs.beta[bs[i]] + eps.capyear[capyear[i]] 
+            logit(phi[i,t-1]) <- int + weight.beta*weight[i,t-1] + ageclass.beta[ageclass[i,t-1]] + bs.beta[bs[i]] #+ eps.capyear[capyear[i]] 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  
                                             
 
@@ -155,6 +155,15 @@ for (i in 1:nind){
       } #t
    } #i
 
+#Derived parameters
+for (i in 1:100){ #weight.sim
+  for (j in 1:12) { #ageclass
+    for (k in 1:3){ # birthsites
+      survival[i,j,k] <- exp(int + weight.beta*weight.sim[i] + ageclass.beta[j] + bs.beta[k]) / 
+                                1-exp(int + weight.beta*weight.sim[i] + ageclass.beta[j] + bs.beta[k])
+    }
+}
+}
       
   
 }
@@ -164,24 +173,24 @@ sink()
 
 
 # Bundle data
-jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = weight, bs = bs, capyear = capyear,
+jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = weight, bs = bs, #capyear = capyear,
                   occasions=occasions, NA_indices=NA_indices, ageclass = ageclass)#
 
 # Initial values
-inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,1), z=known.state.cjs(ch), eps.capyear = c(NA, rnorm(14,0,1)),
+inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,1), z=known.state.cjs(ch), #eps.capyear = c(NA, rnorm(14,0,1)),
                          ageclass.beta =  c(NA, rnorm(14,0,1)), bs.beta = c(NA, rnorm(2,0,1)), int = rnorm(1,0,1) )} #, 
 
-parameters <- c('int', 'bs.beta', 'weight.beta', 'ageclass.beta', 'eps.capyear')#
+parameters <- c('int', 'bs.beta', 'weight.beta', 'ageclass.beta', 'survival')#, 'eps.capyear'
 
 # MCMC settings
-ni <- 100000
+ni <- 40000
 nt <- 10
-nb <- 80000
+nb <- 30000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
 cjs.weight <- jagsUI(jags.data, inits, parameters, "cjs-weight.jags", n.chains = nc,
                      n.thin = nt, n.iter = ni, n.burnin = nb, parallel = T)
-traceplot(cjs.weight)
+# traceplot(cjs.weight)
 print(cjs.weight)
 MCMCtrace(cjs.weight)

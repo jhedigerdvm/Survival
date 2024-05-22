@@ -53,6 +53,15 @@ for (i in 1:nind){
       } #t
    } #i
 
+#Derived parameters
+for (i in 1:100){ #weight.sim
+  for (j in 1:12) { #ageclass
+    for (k in 1:3){ # birthsites
+      survival[i,j,k] <- exp(int + weight.beta*weight.sim[i] + ageclass.beta[j] + bs.beta[k]) / 
+                                (1+exp(int + weight.beta*weight.sim[i] + ageclass.beta[j] + bs.beta[k]))
+    }
+}
+}
       
   
 }

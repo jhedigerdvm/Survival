@@ -263,12 +263,12 @@ p ~ dbeta( 1 , 1 )
 int ~ dnorm( 0 , 0.0001 )
 
 bs.beta[1] <- 0
-ageclass.beta[1] <- 0
+# ageclass.beta[1] <- 0
 # eps.capyear[1] <- 0
-age.weight.beta[1] <- 0
+bs.weight.beta[1] <- 0
 
-for (u in 2:15) { #ageclass and weight interaction
-  age.weight.beta[u] ~ dnorm(0, 0.0001)
+for (u in 2:3) { #ageclass and weight interaction
+  bs.weight.beta[u] ~ dnorm(0, 0.0001)
 }
 
 for (u in 1:nind){
@@ -279,9 +279,9 @@ for (u in 1:nind){
 
 weight.beta ~ dnorm( 0 , 0.0001 )
 
-for (u in 2:15){                              #prior for ageclass
-    ageclass.beta[u] ~ dnorm( 0 , 0.0001 )
-  }
+# for (u in 2:15){                              #prior for ageclass
+#     ageclass.beta[u] ~ dnorm( 0 , 0.0001 )
+#   }
 
 for (u in 2:3){                               #prior for birth site
   bs.beta[u] ~ dnorm( 0 , 0.0001 )
@@ -303,8 +303,8 @@ for (i in 1:nind){
       for (t in (f[i]+1):nocc){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-            logit(phi[i,t-1]) <- int + weight.beta*weight[i,t-1] + ageclass.beta[ageclass[i,t-1]] + bs.beta[bs[i]] 
-                                        + age.weight.beta[ageclass[i,t-1]]*weight[i,t-1] #+ eps.capyear[capyear[i]] 
+            logit(phi[i,t-1]) <- int + weight.beta*weight[i,t-1] + bs.beta[bs[i]] 
+                                        + bs.weight.beta[bs[i]]*weight[i,t-1] #+ eps.capyear[capyear[i]] + ageclass.beta[ageclass[i,t-1]] 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  
                                             
 
@@ -313,16 +313,16 @@ for (i in 1:nind){
             mu2[i,t] <- p * z[i,t]
       } #t
    } #i
-
-#Derived parameters
-for (i in 1:100){ #weight.sim
-  for (j in 1:11) { #ageclass
-    for (k in 1:3){ # birthsites
-      survival[i,j,k] <- exp(int + weight.beta*weight.sim[i] + ageclass.beta[j] + bs.beta[k] + age.weight.beta[j]*weight.sim[i]) /
-                                (1+exp(int + weight.beta*weight.sim[i] + ageclass.beta[j] + bs.beta[k] + age.weight.beta[j]*weight.sim[i]))
-    }
-}
-}
+# 
+# #Derived parameters
+# for (i in 1:100){ #weight.sim
+#   for (j in 1:11) { #ageclass
+#     for (k in 1:3){ # birthsites
+#       survival[i,j,k] <- exp(int + weight.beta*weight.sim[i] + ageclass.beta[j] + bs.beta[k] + age.weight.beta[j]*weight.sim[i]) /
+#                                 (1+exp(int + weight.beta*weight.sim[i] + ageclass.beta[j] + bs.beta[k] + age.weight.beta[j]*weight.sim[i]))
+#     }
+# }
+# }
       
   
 }
@@ -336,15 +336,15 @@ jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = wei
                   occasions=occasions, NA_indices=NA_indices, ageclass = ageclass, weight.sim = weight.sim)#
 
 # Initial values
-inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,1), z=known.state.cjs(ch), age.weight.beta = c(NA, rnorm(14,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
-                         ageclass.beta =  c(NA, rnorm(14,0,1)), bs.beta = c(NA, rnorm(2,0,1)), int = rnorm(1,0,1) )} #, 
+inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,1), z=known.state.cjs(ch), bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
+                         bs.beta = c(NA, rnorm(2,0,1)), int = rnorm(1,0,1) )} #, ageclass.beta =  c(NA, rnorm(14,0,1)), 
 
-parameters <- c('int', 'bs.beta', 'weight.beta', 'ageclass.beta', 'age.weight.beta', 'survival')#, 'eps.capyear'
+parameters <- c('int', 'bs.beta', 'weight.beta',  'bs.weight.beta')#, 'eps.capyear', 'survival''ageclass.beta',
 
 # MCMC settings
-ni <- 40000
+ni <- 100000
 nt <- 10
-nb <- 30000
+nb <- 80000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)

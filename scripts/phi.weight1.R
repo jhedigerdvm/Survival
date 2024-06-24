@@ -92,12 +92,13 @@ capyear <- f
 #add simulated weight values
 nvalues <- 100
 weight.sim <- seq(from = min(weight, na.rm = T), to = max(weight, na.rm = T), length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data
+# 
+# write.csv(weight, './cleaned/weight.csv',row.names = F)
+# write.csv(weight.init, './cleaned/weight.init.csv', row.names = F)
+# write.csv(ch, './cleaned/caphist.csv', row.names = F)
+# write.csv(bs, './cleaned/bs.csv')
 
-write.csv(weight, './cleaned/weight.csv',row.names = F)
-write.csv(weight.init, './cleaned/weight.init.csv', row.names = F)
-write.csv(ch, './cleaned/caphist.csv', row.names = F)
-write.csv(bs, './cleaned/bs.csv')
-
+mean(weight, na.omit = T)
 #####################################
 #model looking at phi as a function of weight 
 
@@ -113,7 +114,7 @@ p ~ dbeta( 1 , 1 )
 int ~ dnorm( 0 , 0.0001 )
 
 bs.beta[1] <- 0
-ageclass.beta[1] <- 0
+# ageclass.beta[1] <- 0
 # eps.capyear[1] <- 0
 
 for (u in 1:nind){
@@ -123,10 +124,10 @@ for (u in 1:nind){
 }
 
 weight.beta ~ dnorm( 0 , 0.0001 )
-
-for (u in 2:15){                              #prior for ageclass
-    ageclass.beta[u] ~ dnorm( 0 , 0.0001 )
-  }
+# 
+# for (u in 2:15){                              #prior for ageclass
+#     ageclass.beta[u] ~ dnorm( 0 , 0.0001 )
+#   }
 
 for (u in 2:3){                               #prior for birth site
   bs.beta[u] ~ dnorm( 0 , 0.0001 )
@@ -194,6 +195,7 @@ nc <- 3
 # Call JAGS from R (BRT 3 min)
 cjs.weight <- jagsUI(jags.data, inits, parameters, "cjs-weight.jags", n.chains = nc,
                      n.thin = nt, n.iter = ni, n.burnin = nb, parallel = T)
+
 # traceplot(cjs.weight)
 print(cjs.weight)
 MCMCtrace(cjs.weight)
@@ -270,17 +272,17 @@ p ~ dbeta( 1 , 1 )
 # eps.capyear[1] <- 0
 # bs.weight.beta[1] <- 0
 # 
-for (u in 1:3) { #ageclass and weight interaction
-  bs.weight.beta[u] ~ dnorm(0, 0.001)
-}
+# for (u in 1:3) { #ageclass and weight interaction
+#   bs.weight.beta[u] ~ dnorm(0, 0.01)
+# }
 
 for (u in 1:nind){
   for (j in 1:occasions[u]){  #prior for missing weights
-  weight[u,NA_indices[u,j]] ~ dnorm( 0 , 0.0001 )
+  weight[u,NA_indices[u,j]] ~ dnorm( 0 , 0.01 )
      }
 }
 
-weight.beta ~ dnorm( 0 , 0.001 )
+weight.beta ~ dnorm( 0 , 0.01 )
 # 
 for (u in 1:3){                               #prior for birth site
   bs.beta[u] ~ dnorm( 0 , 0.0001 )
@@ -299,7 +301,7 @@ for (i in 1:nind){
       for (t in (f[i]+1):nocc){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-            logit(phi[i,t-1]) <- weight.beta*weight[i,t-1] + bs.beta[bs[i]]+ bs.weight.beta[bs[i]]*weight[i,t-1]
+            logit(phi[i,t-1]) <- weight.beta*weight[i,t-1] + bs.beta[bs[i]] #+ bs.weight.beta[bs[i]]*weight[i,t-1]
                                        # int +   #+ eps.capyear[capyear[i]] + ageclass.beta[ageclass[i,t-1]] 
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  
                                             
@@ -332,15 +334,15 @@ jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = wei
                   occasions=occasions, NA_indices=NA_indices, weight.sim = weight.sim)#
 
 # Initial values
-inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,0.5), z=known.state.cjs(ch), bs.weight.beta = rnorm(3,0,.5), #eps.capyear = c(NA, rnorm(14,0,1)),
-                         bs.beta = rnorm(3,0,1) )} #, int = rnorm(1,0,1) ageclass.beta =  c(NA, rnorm(14,0,1)),  
+inits <- function(){list(weight = weight.init, z=known.state.cjs(ch), #eps.capyear = c(NA, rnorm(14,0,1)),
+                         bs.beta = rnorm(3,0,1) )} #bs.weight.beta = rnorm(3,0,1),  weight.beta = rnorm(1,0,0.5)int = rnorm(1,0,1) ageclass.beta =  c(NA, rnorm(14,0,1)),  
 
-parameters <- c('weight.beta','bs.beta', 'bs.weight.beta' )#,,  'int', ' 'eps.capyear', 'survival''ageclass.beta',
+parameters <- c('weight.beta','bs.beta' )#,, 'bs.weight.beta',  'int', ' 'eps.capyear', 'survival''ageclass.beta',
 
 # MCMC settings
-ni <- 100000
+ni <- 30000
 nt <- 10
-nb <- 80000
+nb <- 20000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)

@@ -263,11 +263,11 @@ p ~ dbeta( 1 , 1 )
 
 int ~ dnorm( 0 , 0.1 )
 bs.beta[1] <- 0
-# bs.weight.beta[1] <- 0
-# 
-# for (u in 2:3) { #ageclass and weight interaction
-#   bs.weight.beta[u] ~ dnorm(0, 0.01)
-# }
+bs.weight.beta[1] <- 0
+
+for (u in 2:3) { #ageclass and weight interaction
+  bs.weight.beta[u] ~ dnorm(0, 0.01)
+}
 
 for (u in 1:nind){
   for (j in 1:occasions[u]){  #prior for missing weights
@@ -295,7 +295,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             logit(phi[i,t-1]) <- int + weight.beta*weight[i,t-1] + bs.beta[bs[i]] 
-                                       # + bs.weight.beta[bs[i]]*weight[i,t-1]
+                                        + bs.weight.beta[bs[i]]*weight[i,t-1]
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  
                                             
 
@@ -327,13 +327,13 @@ jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = wei
                   occasions=occasions, NA_indices=NA_indices)#, weight.sim = weight.sim
 
 # Initial values
-inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,1), z=known.state.cjs(ch),# bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
+inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,1), z=known.state.cjs(ch), bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
                          bs.beta = c(NA, rnorm(2,0,1)), int = rnorm(1,0,1))} #, 
 
-parameters <- c('int', 'bs.beta', 'weight.beta')#, 'eps.capyear', 'bs.weight.beta'
+parameters <- c('int', 'bs.beta', 'weight.beta', 'bs.weight.beta')#, 'eps.capyear', 
 
 # MCMC settings
-ni <- 40000
+ni <- 60000
 nt <- 10
 nb <- 30000
 nc <- 3

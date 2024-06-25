@@ -261,7 +261,7 @@ p ~ dbeta( 1 , 1 )
 
 #priors
 
-int ~ dnorm( 0 , 0.1 )
+int ~ dnorm(0,0.01)
 bs.beta[1] <- 0
 bs.weight.beta[1] <- 0
 
@@ -271,19 +271,19 @@ for (u in 2:3) { #ageclass and weight interaction
 
 for (u in 1:nind){
   for (j in 1:occasions[u]){  #prior for missing weights
-  weight[u,NA_indices[u,j]] ~ dnorm( 0 , 0.0001 )
+  weight[u,NA_indices[u,j]] ~ dnorm(0,0.01)
      }
 }
 
-weight.beta ~ dnorm( 0 , 1 )
+weight.beta ~ dnorm(0, 0.01)
 
 for (u in 2:3){                               #prior for birth site
-  bs.beta[u] ~ dnorm( 0 , 0.0001 )
+  bs.beta[u] ~ dnorm(0, 0.01 )
 }
 
 
 tau <- 1/(sigma*sigma)
-sigma ~ dunif(0,100)
+sigma ~ dunif(0,20)
 
 
 # Likelihood
@@ -327,19 +327,20 @@ jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = wei
                   occasions=occasions, NA_indices=NA_indices)#, weight.sim = weight.sim
 
 # Initial values
-inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,1), z=known.state.cjs(ch),# bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
-                         bs.beta = c(NA, rnorm(2,0,1)), int = rnorm(1,0,1))} #, 
+inits <- function(){list(weight = weight.init,  z=known.state.cjs(ch))# bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
+                        } # bs.beta = c(NA, rnorm(2,0,1)), int = rnorm(1,0,1)),weight.beta = rnorm(1,0,1),
 
 parameters <- c('int', 'bs.beta', 'weight.beta', 'bs.weight.beta')#, 'eps.capyear', 
 
 # MCMC settings
-ni <- 60000
+ni <- 10000
 nt <- 10
-nb <- 30000
+nb <- 5000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
-cjs.weight <- jagsUI(jags.data, inits, parameters, "cjs-weight.jags", n.chains = nc,
+cjs.weight <- jagsUI(jags.data, inits,
+                     parameters, "cjs-weight.jags", n.chains = nc,
                      n.thin = nt, n.iter = ni, n.burnin = nb, parallel = T)
 
 print(cjs.weight)

@@ -327,7 +327,7 @@ jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = wei
                   occasions=occasions, NA_indices=NA_indices)#, weight.sim = weight.sim
 
 # Initial values
-inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,1), z=known.state.cjs(ch), bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
+inits <- function(){list(weight = weight.init, weight.beta = rnorm(1,0,1), z=known.state.cjs(ch),# bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
                          bs.beta = c(NA, rnorm(2,0,1)), int = rnorm(1,0,1))} #, 
 
 parameters <- c('int', 'bs.beta', 'weight.beta', 'bs.weight.beta')#, 'eps.capyear', 

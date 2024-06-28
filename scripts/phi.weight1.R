@@ -312,23 +312,38 @@ for (i in 1:nind){
    } #i
 
 #Derived parameters
+# for (i in 1:100){ #weight.sim
+#     for (j in 1:3){ # birthsites
+#       for (k in 1:10) { # ageclass
+#       survival[i,j,k] <- exp(int + weight.beta*weight.sim[i] + bs.beta[j] + bs.weight.beta[j]*weight.sim[i] + age.beta[k]) /
+#                                 (1+exp(int + weight.beta*weight.sim[i] + bs.beta[j] +  bs.weight.beta[j]*weight.sim[i] + age.beta[k]))
+#     }
+# }
+# 
+# }
+
 for (i in 1:100){ #weight.sim
     for (j in 1:3){ # birthsites
-      for (k in 1:10) { # ageclass
-      survival[i,j,k] <- exp(int + weight.beta*weight.sim[i] + bs.beta[j] + bs.weight.beta[j]*weight.sim[i] + age.beta[k]) /
-                                (1+exp(int + weight.beta*weight.sim[i] + bs.beta[j] +  bs.weight.beta[j]*weight.sim[i] + age.beta[k]))
+     
+      survival[i,j] <- exp(int + weight.beta*weight.sim[i] + bs.beta[j] + bs.weight.beta[j]*weight.sim[i]) /
+                                (1+exp(int + weight.beta*weight.sim[i] + bs.beta[j] +  bs.weight.beta[j]*weight.sim[i]))
     }
 }
 
-}
+
 
 for (i in c(1,50,100)){ #weight sim 1 50 and 100
   for (j in 1:3) { #birthsite
-    for (k in 7) { #ageclass 7
-      surv_diff [i,j,k] <- survival[i,1,k] - survival[i,j,k]  
+      site_diff [i,j] <- survival[i,1] - survival[i,j]
     }
   }
-}
+
+
+for (i in c(1,100)){ #weight sim 1 50 and 100
+  for (j in 1:3) { #birthsite
+      surv_diff [i,j] <- survival[1,j] - survival[100,j]
+    }
+  }
 
 
 }
@@ -345,7 +360,7 @@ jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = wei
 inits <- function(){list(weight = weight.init,  z=known.state.cjs(ch))# bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
                         } # bs.beta = c(NA, rnorm(2,0,1)), int = rnorm(1,0,1)),weight.beta = rnorm(1,0,1),
 
-parameters <- c('int', 'bs.beta', 'weight.beta', 'bs.weight.beta', 'age.beta', 'surv_diff', 'survival')#, 'eps.capyear', 
+parameters <- c('int', 'bs.beta', 'weight.beta', 'bs.weight.beta', 'age.beta', 'site_diff', 'surv_diff', 'survival')#, 'eps.capyear', 
 
 # MCMC settings
 ni <- 10000
@@ -362,17 +377,17 @@ print(cjs.weight)
 MCMCtrace(cjs.weight)
 # 
 # 
-# write.csv(cjs.weight$summary, 'weight.csv', row.names = T)
+write.csv(cjs.weight$summary, 'weight.csv', row.names = T)
 
-#########################################################################################
+########################################################################################
 # 
 # #create a tibble of the posterior draws
-# gather<- cjs.weight %>% gather_draws(survival[weight,site, age]) #this creates a dataframe in long format with indexing
+# gather<- cjs.weight %>% gather_draws(survival[weight,site]) #this creates a dataframe in long format with indexing
 # gather$site <- as.factor(gather$site)
-# gather$age <- as.factor(gather$age)
+# # gather$age <- as.factor(gather$age)
 # 
 # #find first row for 2nd rain value
-# first_idx <- which(gather$weight == 2)[1] # 90000 values of rain 1
+# first_idx <- which(gather$weight == 2)[1] # 4500 values of rain 1
 # 
 # #unscale and uncenter rain.sim
 # weight.sim1 <- (weight.sim * sd(data$weight, na.rm = T)) + mean(data$weight, na.rm = T)
@@ -380,7 +395,7 @@ MCMCtrace(cjs.weight)
 # #create vector containing simulated rainfall data but in the format to sync up with gather
 # vector <- numeric(0)
 # weight.sim2 <- for (i in weight.sim1) {
-#   rep_i <- rep(i, times = 90000)   # change to accomodate first idx
+#   rep_i <- rep(i, times = 4500)   # change to accomodate first idx
 #   vector <- c(vector,rep_i)
 # 
 # }
@@ -389,8 +404,7 @@ MCMCtrace(cjs.weight)
 # 
 # #plot for ageclass 7
 # 
-# phi<-
-#   subset(gather, age %in% '7') %>%
+# phi<- gather %>%   
 #   ggplot(aes(x=weight1, y=.value, color = site, fill = site)) +
 #   stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI
 #   scale_fill_viridis_d(alpha = .2, labels = c("DMP", "CONTROL", "TGT") ) + #this allowed me to opacify the ribbon but not the line
@@ -409,9 +423,9 @@ MCMCtrace(cjs.weight)
 #         # axis.text.x = element_text(angle = 45, hjust = 1),
 #         panel.background = element_rect(fill='transparent'), #transparent panel bg
 #         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
-# ggsave('./figures/weightage7.jpg', phi, width = 15, height = 10)
-# # 
-# 
+# ggsave('./figures/weight.site.jpg', phi, width = 15, height = 10)
+# #
+
 
 
 

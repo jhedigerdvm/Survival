@@ -249,7 +249,7 @@ weight.sim <- seq(from = min(weight, na.rm = T), to = max(weight, na.rm = T), le
 
 
 #####################################
-#model looking at phi as a function of weight and the interaction of weight with age
+#model looking at phi as a function of weight and the interaction of weight with bs
 
 set.seed(100)
 sink("cjs-weight.jags")
@@ -265,6 +265,7 @@ int ~ dnorm(0,0.01)
 bs.beta[1] <- 0
 bs.weight.beta[1] <- 0
 age.beta[1] <- 0
+eps.capyear[1] <- 0
 
 for (u in 2:15) { #ageclass beta
   age.beta[u] ~ dnorm( 0, 0.01 )
@@ -286,6 +287,10 @@ for (u in 2:3){                               #prior for birth site
   bs.beta[u] ~ dnorm( 0, 0.01 )
 }
 
+for (u in 2:14){
+  eps.capyear[u] ~ dnorm(0, 0.01)
+}
+
 
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,20)
@@ -302,6 +307,7 @@ for (i in 1:nind){
             logit(phi[i,t-1]) <- int + weight.beta*weight[i,t-1] + bs.beta[bs[i]] 
                                         + bs.weight.beta[bs[i]]*weight[i,t-1]  
                                         + age.beta[ageclass[i,t-1]]
+                                        + eps.capyear[capyear[i]]
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  
                                             
 
@@ -312,38 +318,38 @@ for (i in 1:nind){
    } #i
 
 #Derived parameters
-# for (i in 1:100){ #weight.sim
-#     for (j in 1:3){ # birthsites
-#       for (k in 1:10) { # ageclass
-#       survival[i,j,k] <- exp(int + weight.beta*weight.sim[i] + bs.beta[j] + bs.weight.beta[j]*weight.sim[i] + age.beta[k]) /
-#                                 (1+exp(int + weight.beta*weight.sim[i] + bs.beta[j] +  bs.weight.beta[j]*weight.sim[i] + age.beta[k]))
-#     }
-# }
-# 
-# }
-
 for (i in 1:100){ #weight.sim
     for (j in 1:3){ # birthsites
-     
-      survival[i,j] <- exp(int + weight.beta*weight.sim[i] + bs.beta[j] + bs.weight.beta[j]*weight.sim[i]) /
-                                (1+exp(int + weight.beta*weight.sim[i] + bs.beta[j] +  bs.weight.beta[j]*weight.sim[i]))
+      for (k in 1:10) { # ageclass
+      survival[i,j,k] <- exp(int + weight.beta*weight.sim[i] + bs.beta[j] + bs.weight.beta[j]*weight.sim[i] + age.beta[k]) /
+                                (1+exp(int + weight.beta*weight.sim[i] + bs.beta[j] +  bs.weight.beta[j]*weight.sim[i] + age.beta[k]))
     }
 }
 
-
-
-for (i in c(1,50,100)){ #weight sim 1 50 and 100
-  for (j in 1:3) { #birthsite
-      site_diff [i,j] <- survival[i,1] - survival[i,j]
-    }
-  }
-
-
-for (i in c(1,100)){ #weight sim 1 50 and 100
-  for (j in 1:3) { #birthsite
-      surv_diff [i,j] <- survival[1,j] - survival[100,j]
-    }
-  }
+}
+# # 
+# # for (i in 1:100){ #weight.sim
+# #     for (j in 1:3){ # birthsites
+# #      
+# #       survival[i,j] <- exp(int + weight.beta*weight.sim[i] + bs.beta[j] + bs.weight.beta[j]*weight.sim[i]) /
+# #                                 (1+exp(int + weight.beta*weight.sim[i] + bs.beta[j] +  bs.weight.beta[j]*weight.sim[i]))
+# #     }
+# # }
+# 
+# 
+# 
+# for (i in c(1,50,100)){ #weight sim 1 50 and 100
+#   for (j in 1:3) { #birthsite
+#       site_diff [i,j] <- survival[i,1] - survival[i,j]
+#     }
+#   }
+# 
+# 
+# for (i in c(1,100)){ #weight sim 1 50 and 100
+#   for (j in 1:3) { #birthsite
+#       surv_diff [i,j] <- survival[1,j] - survival[100,j]
+#     }
+#   }
 
 
 }
@@ -353,19 +359,20 @@ sink()
 
 
 # Bundle data
-jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = weight, bs = bs, #capyear = capyear,ageclass = ageclass
+jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = weight, bs = bs, capyear = capyear, 
                   occasions=occasions, NA_indices=NA_indices, weight.sim = weight.sim, ageclass = ageclass)#, 
 
 # Initial values
-inits <- function(){list(weight = weight.init,  z=known.state.cjs(ch))# bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
+inits <- function(){list(weight = weight.init,  z=known.state.cjs(ch), eps.capyear = c(NA, rnorm(13,0,1)))# bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
                         } # bs.beta = c(NA, rnorm(2,0,1)), int = rnorm(1,0,1)),weight.beta = rnorm(1,0,1),
 
-parameters <- c('int', 'bs.beta', 'weight.beta', 'bs.weight.beta', 'age.beta', 'site_diff', 'surv_diff', 'survival')#, 'eps.capyear', 
+parameters <- c('int', 'bs.beta', 'weight.beta', 'bs.weight.beta', 'age.beta', 
+                'eps.capyear')# 'site_diff', 'surv_diff',, 'survival',
 
 # MCMC settings
 ni <- 10000
 nt <- 10
-nb <- 5000
+nb <- 8000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
@@ -379,7 +386,7 @@ MCMCtrace(cjs.weight)
 # 
 write.csv(cjs.weight$summary, 'weight.csv', row.names = T)
 
-########################################################################################
+#######################################################################################
 # 
 # #create a tibble of the posterior draws
 # gather<- cjs.weight %>% gather_draws(survival[weight,site]) #this creates a dataframe in long format with indexing
@@ -404,7 +411,7 @@ write.csv(cjs.weight$summary, 'weight.csv', row.names = T)
 # 
 # #plot for ageclass 7
 # 
-# phi<- gather %>%   
+# phi<- gather %>%
 #   ggplot(aes(x=weight1, y=.value, color = site, fill = site)) +
 #   stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI
 #   scale_fill_viridis_d(alpha = .2, labels = c("DMP", "CONTROL", "TGT") ) + #this allowed me to opacify the ribbon but not the line
@@ -425,7 +432,7 @@ write.csv(cjs.weight$summary, 'weight.csv', row.names = T)
 #         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 # ggsave('./figures/weight.site.jpg', phi, width = 15, height = 10)
 # #
-
-
+# 
+# 
 
 

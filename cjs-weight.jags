@@ -9,12 +9,12 @@ p ~ dbeta( 1 , 1 )
 int ~ dnorm(0,0.01)
 bs.beta[1] <- 0
 bs.weight.beta[1] <- 0
-age.beta[1] <- 0
+# age.beta[1] <- 0
 eps.capyear[1] <- 0
-
-for (u in 2:15) { #ageclass beta
-  age.beta[u] ~ dnorm( 0, 0.01 )
-}
+# 
+# for (u in 2:15) { #ageclass beta
+#   age.beta[u] ~ dnorm( 0, 0.01 )
+# }
 
 for (u in 2:3) { #bs and weight interaction
   bs.weight.beta[u] ~ dnorm( 0, 0.01)
@@ -27,6 +27,9 @@ for (u in 1:nind){
 }
 
 weight.beta ~ dnorm( 0, 0.01 )
+
+age.beta ~ dnorm( 0 , 0.001 )
+
 
 for (u in 2:3){                               #prior for birth site
   bs.beta[u] ~ dnorm( 0, 0.01 )
@@ -51,7 +54,7 @@ for (i in 1:nind){
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             logit(phi[i,t-1]) <- int + weight.beta*weight[i,t-1] + bs.beta[bs[i]] 
                                         + bs.weight.beta[bs[i]]*weight[i,t-1]  
-                                        + age.beta[ageclass[i,t-1]]
+                                        + age.beta*ageclass[i,t-1]
                                         + eps.capyear[capyear[i]]
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  
                                             

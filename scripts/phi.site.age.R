@@ -35,15 +35,15 @@ bs <- as.numeric(factor(id.bs.by$bs)) # 1 = dmp, 2 = ey, 3 = wy
 ageclass<- pivot_wider(data, names_from = 'year', values_from = 'ageclass', id_cols = 'animal_id' )
 ageclass<- ageclass[,-1]
 ageclass<-as.matrix(ageclass)
-
-#create ageclass with ages 1-5 as 1, 6-9 as 2, 10-11 as 3
-ageclass2<- pivot_wider(data, names_from = 'year', values_from = 'ageclass', id_cols = 'animal_id' )
-ageclass2 <- ageclass2[,-1]
-
-ageclass2[] <- ifelse(ageclass2[] >= 1 & ageclass2[] <= 5, 1, 
-               ifelse(ageclass2[] >= 6 & ageclass2[] <= 9, 2,
-                      3))
-ageclass2 <- as.matrix(ageclass2)
+# 
+# #create ageclass with ages 1-5 as 1, 6-9 as 2, 10-11 as 3
+# ageclass2<- pivot_wider(data, names_from = 'year', values_from = 'ageclass', id_cols = 'animal_id' )
+# ageclass2 <- ageclass2[,-1]
+# 
+# ageclass2[] <- ifelse(ageclass2[] >= 1 & ageclass2[] <= 5, 1, 
+#                ifelse(ageclass2[] >= 6 & ageclass2[] <= 9, 2,
+#                       3))
+# ageclass2 <- as.matrix(ageclass2)
 
 # #create animal id vector
 # id <- as.numeric(factor(id.bs.by$animal_id))

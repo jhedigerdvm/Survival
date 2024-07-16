@@ -1,4 +1,4 @@
-#dummy weight survival model
+# weight survival model
 library(jagsUI)
 library(tidyverse)
 library(MCMCvis)
@@ -79,7 +79,8 @@ id.bs.by <- unique(data[, c("animal_id", "bs",'birth_year')])
 bs <- as.numeric(factor(id.bs.by$bs)) # 1 = dmp, 2 = ey, 3 = wy
 
 #create ageclass matrix
-ageclass<- pivot_wider(data, names_from = 'year', values_from = 'ageclass', id_cols = 'animal_id' )
+data$ageclass.sc <- scale(data$ageclass)
+ageclass<- pivot_wider(data, names_from = 'year', values_from = 'ageclass.sc', id_cols = 'animal_id' )
 ageclass<- ageclass[,-1]
 ageclass<-as.matrix(ageclass)
 
@@ -92,6 +93,12 @@ capyear <- f
 #add simulated weight values
 nvalues <- 100
 weight.sim <- seq(from = min(weight, na.rm = T), to = max(weight, na.rm = T), length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data
+
+
+#add simulated age values
+nvalues <- 100
+age.sim <- seq(from = min(ageclass, na.rm = T), to = max(ageclass, na.rm = T), length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data
+
 
 # 
 # 
@@ -264,12 +271,12 @@ p ~ dbeta( 1 , 1 )
 int ~ dnorm(0,0.01)
 bs.beta[1] <- 0
 bs.weight.beta[1] <- 0
-age.beta[1] <- 0
+# age.beta[1] <- 0
 eps.capyear[1] <- 0
-
-for (u in 2:15) { #ageclass beta
-  age.beta[u] ~ dnorm( 0, 0.01 )
-}
+# 
+# for (u in 2:15) { #ageclass beta
+#   age.beta[u] ~ dnorm( 0, 0.01 )
+# }
 
 for (u in 2:3) { #bs and weight interaction
   bs.weight.beta[u] ~ dnorm( 0, 0.01)
@@ -282,6 +289,9 @@ for (u in 1:nind){
 }
 
 weight.beta ~ dnorm( 0, 0.01 )
+
+age.beta ~ dnorm( 0 , 0.001 )
+
 
 for (u in 2:3){                               #prior for birth site
   bs.beta[u] ~ dnorm( 0, 0.01 )
@@ -306,7 +316,7 @@ for (i in 1:nind){
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             logit(phi[i,t-1]) <- int + weight.beta*weight[i,t-1] + bs.beta[bs[i]] 
                                         + bs.weight.beta[bs[i]]*weight[i,t-1]  
-                                        + age.beta[ageclass[i,t-1]]
+                                        + age.beta*ageclass[i,t-1]
                                         + eps.capyear[capyear[i]]
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  
                                             
@@ -316,17 +326,17 @@ for (i in 1:nind){
             mu2[i,t] <- p * z[i,t]
       } #t
    } #i
-
-#Derived parameters
-for (i in 1:100){ #weight.sim
-    for (j in 1:3){ # birthsites
-      for (k in 1:10) { # ageclass
-      survival[i,j,k] <- exp(int + weight.beta*weight.sim[i] + bs.beta[j] + bs.weight.beta[j]*weight.sim[i] + age.beta[k]) /
-                                (1+exp(int + weight.beta*weight.sim[i] + bs.beta[j] +  bs.weight.beta[j]*weight.sim[i] + age.beta[k]))
-    }
-}
-
-}
+# 
+# #Derived parameters
+# for (i in 1:100){ #weight.sim
+#     for (j in 1:3){ # birthsites
+#       for (k in 1:10) { # ageclass
+#       survival[i,j,k] <- exp(int + weight.beta*weight.sim[i] + bs.beta[j] + bs.weight.beta[j]*weight.sim[i] + age.beta[k]) /
+#                                 (1+exp(int + weight.beta*weight.sim[i] + bs.beta[j] +  bs.weight.beta[j]*weight.sim[i] + age.beta[k]))
+#     }
+# }
+# 
+# }
 # # 
 # # for (i in 1:100){ #weight.sim
 # #     for (j in 1:3){ # birthsites
@@ -363,16 +373,16 @@ jags.data <- list(ch = ch, f = f, nind = nrow(ch), nocc = ncol(ch), weight = wei
                   occasions=occasions, NA_indices=NA_indices, weight.sim = weight.sim, ageclass = ageclass)#, 
 
 # Initial values
-inits <- function(){list(weight = weight.init,  z=known.state.cjs(ch), eps.capyear = c(NA, rnorm(13,0,1)))# bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
+inits <- function(){list(weight = weight.init, z=known.state.cjs(ch), eps.capyear = c(NA, rnorm(13,0,1)))# bs.weight.beta = c(NA, rnorm(2,0,1)), #eps.capyear = c(NA, rnorm(14,0,1)),
                         } # bs.beta = c(NA, rnorm(2,0,1)), int = rnorm(1,0,1)),weight.beta = rnorm(1,0,1),
 
 parameters <- c('int', 'bs.beta', 'weight.beta', 'bs.weight.beta', 'age.beta', 
                 'eps.capyear')# 'site_diff', 'surv_diff',, 'survival',
 
 # MCMC settings
-ni <- 10000
+ni <- 1000
 nt <- 10
-nb <- 8000
+nb <- 500
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
@@ -384,7 +394,7 @@ print(cjs.weight)
 MCMCtrace(cjs.weight)
 # 
 # 
-write.csv(cjs.weight$summary, 'weight.csv', row.names = T)
+# write.csv(cjs.weight$summary, 'weight.csv', row.names = T)
 
 #######################################################################################
 # 

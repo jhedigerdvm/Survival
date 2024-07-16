@@ -326,17 +326,16 @@ for (i in 1:nind){
             mu2[i,t] <- p * z[i,t]
       } #t
    } #i
-# 
-# #Derived parameters
-# for (i in 1:100){ #weight.sim
-#     for (j in 1:3){ # birthsites
-#       for (k in 1:10) { # ageclass
-#       survival[i,j,k] <- exp(int + weight.beta*weight.sim[i] + bs.beta[j] + bs.weight.beta[j]*weight.sim[i] + age.beta[k]) /
-#                                 (1+exp(int + weight.beta*weight.sim[i] + bs.beta[j] +  bs.weight.beta[j]*weight.sim[i] + age.beta[k]))
-#     }
-# }
-# 
-# }
+
+#Derived parameters
+for (i in 1:100){ #weight.sim
+    for (j in 1:3){ # birthsites
+      survival[i,j] <- exp(int + weight.beta*weight.sim[i] + bs.beta[j] + bs.weight.beta[j]*weight.sim[i]) /
+                                (1+exp(int + weight.beta*weight.sim[i] + bs.beta[j] +  bs.weight.beta[j]*weight.sim[i]))
+    }
+}
+
+
 # # 
 # # for (i in 1:100){ #weight.sim
 # #     for (j in 1:3){ # birthsites
@@ -377,12 +376,12 @@ inits <- function(){list(weight = weight.init, z=known.state.cjs(ch), eps.capyea
                         } # bs.beta = c(NA, rnorm(2,0,1)), int = rnorm(1,0,1)),weight.beta = rnorm(1,0,1),
 
 parameters <- c('int', 'bs.beta', 'weight.beta', 'bs.weight.beta', 'age.beta', 
-                'eps.capyear')# 'site_diff', 'surv_diff',, 'survival',
+                'eps.capyear', 'survival')# 'site_diff', 'surv_diff',, 'survival',
 
 # MCMC settings
-ni <- 1000
+ni <- 5000
 nt <- 10
-nb <- 500
+nb <- 3000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
@@ -397,52 +396,52 @@ MCMCtrace(cjs.weight)
 # write.csv(cjs.weight$summary, 'weight.csv', row.names = T)
 
 #######################################################################################
-# 
-# #create a tibble of the posterior draws
-# gather<- cjs.weight %>% gather_draws(survival[weight,site]) #this creates a dataframe in long format with indexing
-# gather$site <- as.factor(gather$site)
-# # gather$age <- as.factor(gather$age)
-# 
-# #find first row for 2nd rain value
-# first_idx <- which(gather$weight == 2)[1] # 4500 values of rain 1
-# 
-# #unscale and uncenter rain.sim
-# weight.sim1 <- (weight.sim * sd(data$weight, na.rm = T)) + mean(data$weight, na.rm = T)
-# 
-# #create vector containing simulated rainfall data but in the format to sync up with gather
-# vector <- numeric(0)
-# weight.sim2 <- for (i in weight.sim1) {
-#   rep_i <- rep(i, times = 4500)   # change to accomodate first idx
-#   vector <- c(vector,rep_i)
-# 
-# }
-# 
-# gather$weight1 <- vector
-# 
-# #plot for ageclass 7
-# 
-# phi<- gather %>%
-#   ggplot(aes(x=weight1, y=.value, color = site, fill = site)) +
-#   stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI
-#   scale_fill_viridis_d(alpha = .2, labels = c("DMP", "CONTROL", "TGT") ) + #this allowed me to opacify the ribbon but not the line
-#   scale_color_viridis_d(labels = c("DMP", "CONTROL", "TGT"))+ #color of line but no opacification
-#   labs(x = "WEIGHT (POUNDS)", y = "ANNUAL SURVIVAL PROBABILITY", title = "Survival by weight")+
-#   theme_bw() +
-#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-#         panel.border = element_blank(),
-#         axis.line = element_line(),
-#         legend.position = c(0.15,0.1),
-#         legend.title = element_blank(),
-#         legend.text = element_text(size = 28),
-#         plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
-#         axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
-#         axis.text = element_text(face='bold',size = 28),
-#         # axis.text.x = element_text(angle = 45, hjust = 1),
-#         panel.background = element_rect(fill='transparent'), #transparent panel bg
-#         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
-# ggsave('./figures/weight.site.jpg', phi, width = 15, height = 10)
-# #
-# 
-# 
+
+#create a tibble of the posterior draws
+gather<- cjs.weight %>% gather_draws(survival[weight,site]) #this creates a dataframe in long format with indexing
+gather$site <- as.factor(gather$site)
+# gather$age <- as.factor(gather$age)
+
+#find first row for 2nd rain value
+first_idx <- which(gather$weight == 2)[1] # 1800 values of rain 1
+
+#unscale and uncenter rain.sim
+weight.sim1 <- (weight.sim * sd(data$weight, na.rm = T)) + mean(data$weight, na.rm = T)
+
+#create vector containing simulated rainfall data but in the format to sync up with gather
+vector <- numeric(0)
+weight.sim2 <- for (i in weight.sim1) {
+  rep_i <- rep(i, times = 1800)   # change to accomodate first idx
+  vector <- c(vector,rep_i)
+
+}
+
+gather$weight1 <- vector
+
+#plot for ageclass 7
+
+phi<- gather %>%
+  ggplot(aes(x=weight1, y=.value, color = site, fill = site)) +
+  stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI
+  scale_fill_viridis_d(alpha = .2, labels = c("DMP", "CONTROL", "TGT") ) + #this allowed me to opacify the ribbon but not the line
+  scale_color_viridis_d(labels = c("DMP", "CONTROL", "TGT"))+ #color of line but no opacification
+  labs(x = "WEIGHT (POUNDS)", y = "ANNUAL SURVIVAL PROBABILITY", title = "Survival by weight")+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = c(0.15,0.1),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 28),
+        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 28),
+        # axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+ggsave('./figures/weight.site.jpg', phi, width = 15, height = 10)
+#
+
+
 
 

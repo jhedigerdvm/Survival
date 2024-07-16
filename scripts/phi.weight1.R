@@ -393,7 +393,7 @@ print(cjs.weight)
 MCMCtrace(cjs.weight)
 # 
 # 
-# write.csv(cjs.weight$summary, 'weight.csv', row.names = T)
+write.csv(cjs.weight$summary, './/output/weight.csv', row.names = T)
 
 #######################################################################################
 

@@ -1,0 +1,87 @@
+
+model {
+
+#prior for recapture prob
+p ~ dbeta(1, 1)
+
+
+#priors
+
+int ~ dnorm(0,0.01)
+age.beta[1] <- 0      #ageclass
+bs.beta[1] <- 0       #birth site
+age.bs.beta[1] <- 0   #age site interaction
+eps.capyear[1] <- 0   #capture year random effect
+
+for (u in 2:15){
+  age.beta[u] ~ dnorm(0,0.01)
+}
+
+for (u in 2:3){
+  bs.beta[u] ~ dnorm(0, 0.01)
+}
+
+for (u in 2:15){
+  age.bs.beta[u] ~ dnorm(0, 0.01)
+}
+
+weight.beta ~ dunif(0, 100)
+
+for (u in 1:nind){
+  for (j in 1:occasions[u]){  #prior for missing weights
+  weight[u,NA_indices[u,j]] ~ dnorm( 0, 0.01)
+     }
+}
+
+tau <- 1/(sigma*sigma)
+sigma ~ dunif(0,100)
+
+for (u in 2:15){
+  eps.capyear[u] ~ dnorm(0, tau.capyear)
+}
+  tau.capyear <- 1/(sigma.capyear*sigma.capyear)
+  sigma.capyear ~ dunif(0,100)
+
+# Likelihood
+for (i in 1:nind){
+   # Define latent state at first capture, we know for sure the animal is alive
+      z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):h[i]){
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <- int  + age.beta[ageclass[i,t-1]]
+                                      + bs.beta[bs[i]] + age.bs.beta[ageclass[i,t-1]]*bs[i]
+                                      + eps.capyear[capyear[i]]
+                                      + weight.beta*weight[i, t-1]
+                                      
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+      } #t
+   } #i
+
+#derived parameters
+    for (j in 1:15){ #ageclass
+      for (k in 1:3){ #site
+      survival[j,k] <- exp(int + age.beta[j] + bs.beta[k] + age.bs.beta[j]*k)/
+                            (1 + exp(int + age.beta[j] + bs.beta[k] + age.bs.beta[j]*k))
+      } #for k
+    }   #for j
+
+
+    # for (j in 1:2){
+    #   for (k in 1:2){
+    #     surv_diff[j,k] <- survival[j+1, k] - survival[j,k]
+    #   }
+    # }
+    # 
+    # for (j in 1:3){
+    #   for (k in 1:2){
+    #     site_diff[j,k] <- survival[j, 1] - survival[j,2]
+    #   }
+    # }
+
+}
+

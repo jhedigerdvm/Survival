@@ -70,12 +70,6 @@ f-h #check for zero
 weight<- pivot_wider(data, names_from = 'year', values_from = 'weight', id_cols = 'animal_id' )
 weight<- as.matrix(weight[,-1])
 weight <- scale(weight) # scale and center
-# 
-# quantile(data$weight, probs = c(0.25, 0.75), na.rm = T) #figure out quartiles and create three class categ variable
-# weight.bin <- weight
-# weight.bin[weight.bin <= 139] <- 1 # bottom quartile
-# weight.bin[weight.bin >= 193] <- 3 #top quartile
-# weight.bin[weight.bin >=140 & weight.bin <= 194] <- 2 #everything in between
 
 
 #function for weight matrix
@@ -99,9 +93,35 @@ weight<-as.matrix(weight)
 #how many occasions does each individual have of an NA weight
 occasions <- rowSums(is.na(weight))
 
-
+##now do the same thing we did with weight with antlers
 antlers<- pivot_wider(data, names_from = 'year', values_from = 'bcsin', id_cols = 'animal_id' )
 antlers<- as.matrix(antlers[,-1])
+
+antlers <- scale(antlers) # scale and center
+
+
+#function for weight matrix
+antlers.init <- antlers
+antlers.init[is.na(antlers.init)]<-0 #applying mean weight to initial values for NA observations, because its scaled and centered, we can just use zero? 
+antlers.init[!is.na(antlers)]<-NA
+for (i in 1:dim(antlers.init)){ #cant have mean weight for years before animal was first captured
+  antlers.init[i,1:f[i]]<-NA
+}
+
+#need to find where NA values are in weight matrix, will use this information to build priors
+antlers <- as.data.frame(antlers)
+indices_antlers <- as.data.frame(which(is.na(antlers), arr.ind=T))
+indices_antlers <- indices_antlers %>% arrange(row) %>%  group_by(row) %>%  mutate(n=1:n()) %>% ungroup()
+NA_indices_antlers <- matrix(NA, nrow=nrow(ch), ncol=ncol(ch))
+for(i in 1:nrow(indices_antlers)){
+  NA_indices_antlers[indices_antlers[[i,1]],indices_antlers[[i,3]]] <- indices_antlers[[i,2]]
+}
+antlers<-as.matrix(antlers)
+
+#how many occasions does each individual have of an NA weight
+occasions_antlers <- rowSums(is.na(antlers))
+
+
 
 #rainfall
 cy.rain<-pivot_wider(data, names_from = 'year', values_from = 'annual.sc', id_cols = 'animal_id' )
@@ -655,10 +675,19 @@ for (u in 2:15){
 }
 
 weight.beta ~ dunif(0, 100)
+antlers.beta ~ dunif(0,100)
+by.rain.beta ~ dnorm(0,0.001)
 
 for (u in 1:nind){
   for (j in 1:occasions[u]){  #prior for missing weights
   weight[u,NA_indices[u,j]] ~ dnorm( 0, 0.01)
+     }
+}
+
+
+for (u in 1:nind){
+  for (j in 1:occasions_antlers[u]){  #prior for missing weights
+  antlers[u,NA_indices_antlers[u,j]] ~ dnorm( 0, 0.01)
      }
 }
 
@@ -684,6 +713,8 @@ for (i in 1:nind){
                                       + bs.beta[bs[i]] + age.bs.beta[ageclass[i,t-1]]*bs[i]
                                       + eps.capyear[capyear[i]]
                                       + weight.beta*weight[i, t-1]
+                                      + antlers.beta*antlers[i, t-1]
+                                      + by.rain.beta*by.rain[i, t-1]
                                       
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -700,14 +731,14 @@ for (i in 1:nind){
     }   #for j
 
 
-    for (j in 1:2){
-      for (k in 1:2){
+    for (j in 1:9){
+      for (k in 1:3){
         surv_diff[j,k] <- survival[j+1, k] - survival[j,k]
       }
     }
 
-    for (j in 1:3){
-      for (k in 1:2){
+    for (j in 1:10){
+      for (k in 1:3){
         site_diff[j,k] <- survival[j, 1] - survival[j,2]
       }
     }
@@ -727,8 +758,9 @@ for(i in 1:dim(z.init)[1]){
 
 
 # Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = ageclass, bs = bs, 
-                  capyear = capyear, weight = weight, NA_indices = NA_indices, occasions = occasions)
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = ageclass, bs = bs, by.rain = by.rain,
+                  capyear = capyear, weight = weight, NA_indices = NA_indices, occasions = occasions,
+                  antlers = antlers, NA_indices_antlers = NA_indices_antlers, occasions_antlers = occasions_antlers)
 
 # Initial values
 inits <- function(){list(int = rnorm(1,0,1), z = z.init,
@@ -737,16 +769,19 @@ inits <- function(){list(int = rnorm(1,0,1), z = z.init,
                          age.bs.beta = c(NA, rnorm(14,0,1)),
                          eps.capyear = c(NA, runif(14, 0, 100)),
                          weight.beta = runif(1, 0, 100),
-                         weight = weight.init)}
+                         weight = weight.init,
+                         antlers.beta = runif(1, 0, 100),
+                         antlers = antlers.init,
+                         by.rain.beta = rnorm(1,0,1))}
 
 
-parameters <- c('int', 'age.beta', 'bs.beta', 'age.bs.beta', 'weight.beta', 
-                'survival')#, 'surv_diff', 'site_diff')
+parameters <- c('int', 'age.beta', 'bs.beta', 'age.bs.beta', 'by.rain.beta', 'weight.beta', 'antlers.beta',
+                'survival','surv_diff', 'site_diff')#, 
 
 # MCMC settings
-ni <- 30000
-nt <- 1
-nb <- 20000
+ni <- 40000
+nt <- 10
+nb <- 30000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
@@ -755,4 +790,4 @@ phi.age <- jagsUI(jags.data, inits, parameters, "phi.age.jags", n.chains = nc,
 
 print(phi.age)
 MCMCtrace(phi.age)
-# write.csv(phi.age$summary, './output/phi.age.bin.two.sites.csv', row.names = T)
+write.csv(phi.age$summary, './output/phi.age.site.weight.ant.byrain.csv', row.names = T)

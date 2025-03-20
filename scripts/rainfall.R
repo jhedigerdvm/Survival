@@ -1,4 +1,5 @@
 #total rainfall now starts in november and ends in october
+#this scripts cleans up the rainfall data and gets the totals and subsets 
 library(tidyverse)
 library(here)
 #rainfall data
@@ -17,7 +18,7 @@ data1$surv.year <- as.factor(data1$Year)
 data1$site <-as.factor(data1$site)
 cor(west.rain$rain, east.rain$rain) #92% correlation between east and west yana
 
-totalrain<- data1 %>% group_by(Year, site ) %>% summarise(total.rain=sum(rain)) #sum is total annual rainfall from nov to oct
+totalrain<- data1 %>% group_by(Year, site ) %>% summarise(total.rain=sum(rain)) #sum is total annual rainfall from nov through oct
 # totalrain<- totalrain[-c(43:44),]#remove 2022
 
 #filter for only march april and may rainfall

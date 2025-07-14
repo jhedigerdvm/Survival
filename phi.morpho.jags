@@ -7,13 +7,14 @@ p ~ dbeta(1, 1)
 
 #priors
 
-
-  beta1 ~ dnorm(0,0.1)  # age beta continuous
+# int ~ dnorm(0,0.001)
+# 
+  beta1 ~ dnorm(0,0.001)  # age beta continuous
   beta2 ~ dlnorm(0, 0.1)    # morpho beta continuous
-  beta3 ~ dnorm(0,0.01)  #birth year rain beta continuous
+  beta3 ~ dnorm(0,0.001)  #birth year rain beta continuous
   
-for ( u in 1:3) { #interaction between age and site
-  beta4[u] ~ dnorm(0, 1)
+for ( u in 1:3) { #interaction between morpho and site
+  beta4[u] ~ dlnorm(0, 0.1)
 }
 
 for (u in 1:nind){      #prior for missing morphometrics
@@ -46,12 +47,18 @@ for (i in 1:nind){
             logit(phi[i,t-1]) <- eps1[bs[i]] + beta1*ageclass[i,t-1]
                                       + beta2*morpho[i, t-1]
                                       + beta3*by.rain[i, t-1]
-                                      + beta4[bs[i]]*ageclass[i,t-1]
+                                      + beta4[bs[i]]*morpho[i,t-1]
                                       + eps2[year[i]]
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
             mu2[i,t] <- p * z[i,t]
+            
+          #predictive checks
+            res[i,t] <- z[i,t]- mu1[i,t]
+            z.new[i,t] ~ dbern(mu1[i,t], tau)
+            res.new[i,t] ~ z.new[i,t] - mu1[i,t]
+            
       } #t
    } #i
 
@@ -59,12 +66,14 @@ for (i in 1:nind){
       for (j in 1:100 ) { #age simulation, beta1
       for (l in 1:3){ #site, eps1
 
-      survival[j,l] <- exp( beta1*age.sim[j]  + eps1[l] + beta4[l]*age.sim[j] )/ 
-                            (1 + exp(beta1*age.sim[j]  + eps1[l] + beta4[l]*age.sim[j]  )) 
-    #   } #for k
-    # }   #for j
-    } # for i
+      survival[j,l] <- exp( beta2*morpho.sim[j]  + eps1[l] + beta4[l]*morpho.sim[j] )/ 
+                            (1 + exp(beta2*morpho.sim[j]  + eps1[l] + beta4[l]*morpho.sim[j]  )) 
+  
+    } # for j
     } # for l
+        
+        fit <- sum(res[])
+        fit.new <- sum(res.new[])
 
 
 }

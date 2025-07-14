@@ -158,10 +158,12 @@ antler.sim <- seq(from = min(antlers, na.rm = T), to = max(antlers, na.rm = T), 
 age.sim <- seq(from = min(age.sc, na.rm = T), to = max(age.sc, na.rm = T), length.out = nvalues) #obtained to and from values from max and min of age
 
 
+# ---- Model1: phi ~ weight x site interaction ----
+
 #survival as a function of weight (continuous), age (continuous), site random effect, age x site, random effect of capture year
 # Specify model in JAGS language
 set.seed(100)
-sink("phi.age.jags")
+sink("phi.morpho.jags")
 cat("
 model {
 
@@ -191,6 +193,10 @@ for (u in 1:3){         #prior for random site effect
   eps1[u] ~ dlnorm(0,tau)
   }
 
+for (u in 1:12){  #prior for year effect
+  eps2[u] ~ dnorm(0,tau)
+}
+
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,100)
 
@@ -208,19 +214,375 @@ for (i in 1:nind){
                                       + beta2*morpho[i, t-1]
                                       + beta3*by.rain[i, t-1]
                                       + beta4[bs[i]]*morpho[i,t-1]
+                                      + eps2[year[i]]
+
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+            
+          #predictive checks
+            res[i,t] <- z[i,t]- mu1[i,t]
+            z.new[i,t] ~ dbern(mu1[i,t], tau)
+            res.new[i,t] ~ z.new[i,t] - mu1[i,t]
+            
+      } #t
+   } #i
+
+   #derived parameters
+      for (j in 1:100 ) { #age simulation, beta1
+      for (l in 1:3){ #site, eps1
+
+      survival[j,l] <- exp( beta2*morpho.sim[j]  + eps1[l] + beta4[l]*morpho.sim[j] )/ 
+                            (1 + exp(beta2*morpho.sim[j]  + eps1[l] + beta4[l]*morpho.sim[j]  )) 
+  
+    } # for j
+    } # for l
+        
+        fit <- sum(res[])
+        fit.new <- sum(res.new[])
+
+
+}
+",fill = TRUE)
+sink()
+
+
+#Function for latent state
+z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+
+for(i in 1:dim(z.init)[1]){
+  z.init[i, f[i]:h[i]] <- 1
+  z.init[i,f[i]] <- NA
+}
+
+
+# Bundle data
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, by.rain = by.rain,
+                   bs = bs, age.sim = age.sim, morpho.sim = weight.sim, rain.sim = by.rain.sim,
+                  NA_indices = NA_indices_weight, occasions = occasions_weight,morpho = weight, year = capyear)
+
+# Initial values
+inits <- function(){list(#int = rnorm(1,0,1), 
+                         z = z.init,
+                         eps1 = rlnorm(3,0,1), #birth site random effect
+                         morpho = weight.init, #initial values for NA morphos
+                         beta1 = rnorm(1,0,1), #age beta
+                         beta2 = rlnorm(1, 0, 1),#morpho beta
+                         beta3 = rnorm(1, 0, 1), # rain beta
+                         beta4 = rlnorm(3,0,1),#morpho and site interaction
+                         eps2 = rnorm(12, 0, 1) #capture year random effect
+                          )
+                        }
+
+
+parameters <- c('eps1', 'beta1','beta2', 'beta3', 'beta4', 'eps2',
+                'fit', 'fit.new', 'survival')  
+
+# MCMC settings
+ni <- 10000
+nt <- 10
+nb <- 5000
+nc <- 3
+
+# Call JAGS from R (BRT 3 min)
+phi.morpho <- jagsUI(jags.data, inits, parameters, "phi.morpho.jags", n.chains = nc,
+                  n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+
+print(phi.morpho)
+MCMCtrace(phi.morpho)
+write.csv(phi.morpho$summary, './output/phi.weighttxsite.csv', row.names = T)
+
+
+#create a tibble of the posterior draws
+gather<- phi.morpho %>% gather_draws(survival[morpho, site]) #this creates a dataframe in long format with indexing
+gather$site <- as.factor(gather$site)
+
+#find first row for 2nd rain value
+first_idx <- which(gather$morpho == 2)[1] # 4500 values of antler 1
+first_idx
+#unscale and uncenter weight
+morpho.sim.usc <- (weight.sim * sd(data$weight, na.rm = T)) + mean(data$weight, na.rm = T)
+
+#create vector containing simulated morpho data but in the format to sync up with gather
+vector <- numeric(0)
+morpho.sim.usc1 <- for (i in morpho.sim.usc) {
+  rep_i <- rep(i, times = first_idx-1) #change times to match the number of first_idx
+  vector <- c(vector,rep_i)
+
+}
+
+gather$bodymass <- vector
+
+#plot for average age individual
+
+phi.plot<- gather %>%
+  ggplot(aes(x=bodymass, y=.value, color = site, fill = site)) +
+  stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI
+  scale_fill_viridis_d(option = 'turbo', alpha = .2, labels = c("DMP", "CONTROL", "TGT") ) + #this allowed me to opacify the ribbon but not the line
+  scale_color_viridis_d(option = 'turbo', labels = c("DMP", "CONTROL", "TGT"))+ #color of line but no opacification
+  labs(x = "Body mass (lbs)", y = "ANNUAL SURVIVAL PROBABILITY", title = "")+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = "inside",
+        legend.position.inside = c(0.9,0.1),          # x, y inside the plot area
+        legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+        legend.text = element_text(size = 28),
+        legend.title = element_blank(),
+        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 28),
+        # axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+phi.plot
+ggsave('./figures/phi.weightxsite.jpg', phi.plot, width = 15, height = 10)
+
+
+# ---- Model1a: phi ~ antlers x site interaction ----
+
+#survival as a function of antlers (continuous), age (continuous), site random effect, age x site, random effect of capture year
+# Specify model in JAGS language
+set.seed(100)
+sink("phi.morpho.jags")
+cat("
+model {
+
+#prior for recapture prob
+p ~ dbeta(1, 1)
+
+
+#priors
+
+# int ~ dnorm(0,0.001)
+# 
+  beta1 ~ dnorm(0,0.001)  # age beta continuous
+  beta2 ~ dlnorm(0, 0.1)    # morpho beta continuous
+  beta3 ~ dnorm(0,0.001)  #birth year rain beta continuous
+  
+for ( u in 1:3) { #interaction between morpho and site
+  beta4[u] ~ dlnorm(0, 0.1)
+}
+
+for (u in 1:nind){      #prior for missing morphometrics
+  for (j in 1:occasions[u]){
+  morpho[u,NA_indices[u,j]] ~ dnorm( 0, 0.01)
+     }
+}
+
+for (u in 1:3){         #prior for random site effect
+  eps1[u] ~ dlnorm(0,tau)
+  }
+
+for (u in 1:12){  #prior for year effect
+  eps2[u] ~ dnorm(0,tau)
+}
+
+tau <- 1/(sigma*sigma)
+sigma ~ dunif(0,100)
+
+
+# Likelihood
+for (i in 1:nind){
+   # Define latent state at first capture, we know for sure the animal is alive
+      z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):h[i]){
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <- eps1[bs[i]] + beta1*ageclass[i,t-1]
+                                      + beta2*morpho[i, t-1]
+                                      + beta3*by.rain[i, t-1]
+                                      + beta4[bs[i]]*morpho[i,t-1]
+                                      + eps2[year[i]]
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
             mu2[i,t] <- p * z[i,t]
       } #t
    } #i
-   
+
    #derived parameters
-      for (j in 1:100 ) { #morpho simulation, beta2
+      for (j in 1:100 ) { #antler simulation, beta2
       for (l in 1:3){ #site, eps1
 
-      survival[j,l] <- exp( beta2*morpho.sim[j]  + eps1[l] + beta4[l]*morpho.sim[j] )/ #beta1*age.sim[i] +
-                            (1 + exp(beta2*morpho.sim[j] + eps1[l] + beta4[l]*morpho.sim[j] )) #beta1*age.sim[i] +
+      survival[j,l] <- exp( beta2*morpho.sim[j]  + eps1[l] + beta4[l]*morpho.sim[j] )/ 
+                            (1 + exp(beta2*morpho.sim[j]  + eps1[l] + beta4[l]*morpho.sim[j]  )) 
+  
+    } # for j
+    } # for l
+
+
+}
+",fill = TRUE)
+sink()
+
+
+#Function for latent state
+z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+
+for(i in 1:dim(z.init)[1]){
+  z.init[i, f[i]:h[i]] <- 1
+  z.init[i,f[i]] <- NA
+}
+
+
+# Bundle data
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, by.rain = by.rain,
+                  bs = bs, age.sim = age.sim, morpho.sim = antler.sim, rain.sim = by.rain.sim,
+                  NA_indices = NA_indices_antlers, occasions = occasions_antlers,morpho = antlers, 
+                  year = capyear)
+
+# Initial values
+inits <- function(){list(#int = rnorm(1,0,1), 
+  z = z.init,
+  eps1 = rlnorm(3,0,1), #birth site random effect
+  morpho = antlers.init, #initial values for NA morphos
+  beta1 = rnorm(1,0,1), #age beta
+  beta2 = rlnorm(1, 0, 1),#morpho beta
+  beta3 = rnorm(1, 0, 1), # rain beta
+  beta4 = rlnorm(3,0,1),#morpho and site interaction
+  eps2 = rnorm(12, 0, 1)#capture year random effect
+)
+}
+
+
+parameters <- c('eps1', 'beta1','beta2', 'beta3', 'beta4', 'eps2', 'survival')#'int', 'beta2',  
+
+# MCMC settings
+ni <- 10000
+nt <- 10
+nb <- 5000
+nc <- 3
+
+# Call JAGS from R (BRT 3 min)
+phi.morpho <- jagsUI(jags.data, inits, parameters, "phi.morpho.jags", n.chains = nc,
+                     n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+
+print(phi.morpho)
+MCMCtrace(phi.morpho)
+write.csv(phi.morpho$summary, './output/phi.antlersxsite.csv', row.names = T)
+
+
+#create a tibble of the posterior draws
+gather<- phi.morpho %>% gather_draws(survival[morpho, site]) #this creates a dataframe in long format with indexing
+gather$site <- as.factor(gather$site)
+
+#find first row for 2nd rain value
+first_idx <- which(gather$morpho == 2)[1] # 3601 values of antler 1
+
+#unscale and uncenter weight
+morpho.sim.usc <- (weight.sim * sd(data$weight, na.rm = T)) + mean(data$weight, na.rm = T)
+
+#create vector containing simulated morpho data but in the format to sync up with gather
+vector <- numeric(0)
+morpho.sim.usc1 <- for (i in morpho.sim.usc) {
+  rep_i <- rep(i, times = first_idx-1) #change times to match the number of first_idx
+  vector <- c(vector,rep_i)
+  
+}
+
+gather$bcs <- vector
+
+#plot for average age individual
+
+phi.plot<- gather %>%
+  ggplot(aes(x=bcs, y=.value, color = site, fill = site)) +
+  stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI
+  scale_fill_viridis_d(option = 'turbo', alpha = .2, labels = c("DMP", "CONTROL", "TGT") ) + #this allowed me to opacify the ribbon but not the line
+  scale_color_viridis_d(option = 'turbo', labels = c("DMP", "CONTROL", "TGT"))+ #color of line but no opacification
+  labs(x = "Antlers (in)", y = "ANNUAL SURVIVAL PROBABILITY", title = "")+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = "inside",
+        legend.position.inside = c(0.9,0.1),          # x, y inside the plot area
+        legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+        legend.text = element_text(size = 28),
+        legend.title = element_blank(),
+        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 28),
+        # axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+phi.plot
+ggsave('./figures/phi.antlersxsite.jpg', phi.plot, width = 15, height = 10)
+
+
+# ---- Model2: phi ~ age x site interaction ----
+
+
+#survival as a function of weight (continuous), age (continuous), site random effect, age x site, random effect of capture year
+# Specify model in JAGS language
+set.seed(100)
+sink("phi.age.jags")
+cat("
+model {
+
+#prior for recapture prob
+p ~ dbeta(1, 1)
+
+
+#priors
+
+
+  beta1 ~ dnorm(0,0.1)  # age beta continuous
+  beta2 ~ dlnorm(0, 0.1)    # morpho beta continuous
+  beta3 ~ dnorm(0,0.01)  #birth year rain beta continuous
+  
+for ( u in 1:3) { #interaction between age and site
+  beta4[u] ~ dnorm(0, 1)
+}
+
+for (u in 1:nind){      #prior for missing morphometrics
+  for (j in 1:occasions[u]){
+  morpho[u,NA_indices[u,j]] ~ dnorm( 0, 0.01)
+     }
+}
+
+for (u in 1:3){         #prior for random site effect
+  eps1[u] ~ dlnorm(0,tau)
+  }
+
+for (u in 1:12){  #prior for year effect
+  eps2[u] ~ dnorm(0,tau)
+}
+
+tau <- 1/(sigma*sigma)
+sigma ~ dunif(0,100)
+
+
+# Likelihood
+for (i in 1:nind){
+   # Define latent state at first capture, we know for sure the animal is alive
+      z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):h[i]){
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <- eps1[bs[i]] + beta1*ageclass[i,t-1]
+                                      + beta2*morpho[i, t-1]
+                                      + beta3*by.rain[i, t-1]
+                                      + beta4[bs[i]]*ageclass[i,t-1]
+                                      + eps2[year[i]]
+
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+      } #t
+   } #i
+
+   #derived parameters
+      for (j in 1:100 ) { #age simulation, beta1
+      for (l in 1:3){ #site, eps1
+
+      survival[j,l] <- exp( beta1*age.sim[j]  + eps1[l] + beta4[l]*age.sim[j] )/ 
+                            (1 + exp(beta1*age.sim[j]  + eps1[l] + beta4[l]*age.sim[j]  )) 
     #   } #for k
     # }   #for j
     } # for i
@@ -243,28 +605,28 @@ for(i in 1:dim(z.init)[1]){
 
 # Bundle data
 jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, by.rain = by.rain,
-                   bs = bs, age.sim = age.sim, morpho.sim = weight.sim, rain.sim = by.rain.sim,
-                  NA_indices = NA_indices, occasions = occasions,morpho = weight,)
+                  bs = bs, age.sim = age.sim, morpho.sim = weight.sim, rain.sim = by.rain.sim,
+                  NA_indices = NA_indices_weight, occasions = occasions_weight,morpho = weight, year = capyear)
 
 # Initial values
 inits <- function(){list(#int = rnorm(1,0,1), 
-                         z = z.init,
-                         eps1 = rlnorm(3,0,1), #birth site random effect
-                         morpho = weight.init,
-                         beta1 = rnorm(1,0,1), #age beta
-                         beta2 = rlnorm(1, 0, 1),#morpho beta
-                         beta3 = rnorm(1, 0, 1), # rain beta
-                         beta4 = rlnorm(3,0,1) #morpho and site interaction
-                          )
-                        }
+  z = z.init,
+  eps1 = rlnorm(3,0,1), #birth site random effect
+  morpho = weight.init,
+  beta1 = rnorm(1,0,1), #age beta
+  beta2 = rlnorm(1, 0, 1),#morpho beta
+  beta3 = rnorm(1, 0, 1), # rain beta
+  beta4 = rnorm(3,0,1),#age and site interaction
+  eps2 = rnorm(12, 0, 1)
+)
+}
 
-
-parameters <- c('eps1', 'beta1','beta2', 'beta3', 'beta4', 'survival')#'int', 'beta2',  
+parameters <- c('eps1', 'beta1','beta2', 'beta3', 'beta4', 'eps2', 'survival')#'int', 'beta2',  
 
 # MCMC settings
-ni <- 8000
+ni <- 15000
 nt <- 10
-nb <- 4000
+nb <- 10000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
@@ -273,45 +635,48 @@ phi.age <- jagsUI(jags.data, inits, parameters, "phi.age.jags", n.chains = nc,
 
 print(phi.age)
 MCMCtrace(phi.age)
-write.csv(phi.age$summary, './output/phi.weightxsite.csv', row.names = T)
+write.csv(phi.age$summary, './output/phi.agexsite.csv', row.names = T)
 
+#posterior predictive check
+pp.check(phi.age, )
 
 #create a tibble of the posterior draws
-gather<- phi.age %>% gather_draws(survival[weight, site]) #this creates a dataframe in long format with indexing
+gather<- phi.age %>% gather_draws(survival[age, site]) #this creates a dataframe in long format with indexing
 gather$site <- as.factor(gather$site)
 
 #find first row for 2nd rain value
-first_idx <- which(gather$weight == 2)[1] # 901 values of antler 1
+first_idx <- which(gather$age == 2)[1] # 4500 values of antler 1
 
 #unscale and uncenter rain.sim
-antler.sim.usc <- (weight.sim * sd(data$bcsin, na.rm = T)) + mean(data$bcsin, na.rm = T)
+age.sim.usc <- (age.sim * sd(data$ageclass, na.rm = T)) + mean(data$ageclass, na.rm = T)
 
 #create vector containing simulated antler data but in the format to sync up with gather
 vector <- numeric(0)
-antler.sim.usc1 <- for (i in antler.sim.usc) {
-  rep_i <- rep(i, times = 3600) #change times to match the number of first_idx
+age.sim.usc1 <- for (i in age.sim.usc) {
+  rep_i <- rep(i, times = first_idx-1) #change times to match the number of first_idx
   vector <- c(vector,rep_i)
-
+  
 }
 
-gather$weightlbs <- vector
+gather$ageclass <- vector
 
 #plot for average age individual
 
 phi.plot<- gather %>%
-  ggplot(aes(x=weightlbs, y=.value, color = site, fill = site)) +
+  ggplot(aes(x=ageclass, y=.value, color = site, fill = site)) +
   stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI
   scale_fill_viridis_d(option = 'turbo', alpha = .2, labels = c("DMP", "CONTROL", "TGT") ) + #this allowed me to opacify the ribbon but not the line
   scale_color_viridis_d(option = 'turbo', labels = c("DMP", "CONTROL", "TGT"))+ #color of line but no opacification
-  labs(x = "Body Mass (lbs)", y = "ANNUAL SURVIVAL PROBABILITY", title = "Survival by body mass and site")+
+  labs(x = "Age", y = "ANNUAL SURVIVAL PROBABILITY", title = "")+
   theme_bw() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.border = element_blank(),
         axis.line = element_line(),
         legend.position = "inside",
-        legend.position.inside = c(0.9,0.1),          # x, y inside the plot area
-        legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+        legend.position.inside = c(0.1,0.1),          # x, y inside the plot area
+        legend.justification = c("left", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
         legend.text = element_text(size = 28),
+        legend.title = element_blank(),
         plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
         axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
         axis.text = element_text(face='bold',size = 28),
@@ -319,200 +684,6 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
-ggsave('./figures/phi.weightxsite.jpg', phi.plot, width = 15, height = 10)
+ggsave('./figures/phi.agexsite.jpg', phi.plot, width = 15, height = 10)
 
-####
-# 
-# #survival as a function of antlers (continuous), age (1-15), site (all 3)
-# # Specify model in JAGS language
-# set.seed(100)
-# sink("phi.antlers.jags")
-# cat("
-# model {
-# 
-# #prior for recapture prob
-# p ~ dbeta(1, 1)
-# 
-# 
-# #priors
-# 
-# int ~ dnorm(0,0.01)
-# age.beta[1] <- 0      #ageclass
-# bs.beta[1] <- 0       #birth site
-# antlers.bs.beta[1] <- 0   #antler site interaction
-# # eps.capyear[1] <- 0   #capture year random effect
-# 
-# for (u in 2:15){
-#   age.beta[u] ~ dnorm(0,0.01)
-# }
-# # 
-# for (u in 2:3){
-#   bs.beta[u] ~ dnorm(0, 0.01)
-# }
-# 
-# for (u in 2:3){
-#   antlers.bs.beta[u] ~ dnorm(0, 0.01) #antler birthsite interaction
-# }
-# 
-# antlers.beta ~ dunif(0, 100)
-# # by.rain.beta ~ dnorm(0,0.001)
-# 
-# for (u in 1:nind){
-#   for (j in 1:occasions_antlers[u]){  #prior for missing weights
-#   antlers[u,NA_indices_antlers[u,j]] ~ dnorm( 0, 0.01)
-#      }
-# }
-# 
-# 
-# tau <- 1/(sigma*sigma)
-# sigma ~ dunif(0,100)
-# 
-# # 
-# # for (u in 2:15){
-# #   eps.capyear[u] ~ dnorm(0, tau.capyear)
-# # }
-# #   tau.capyear <- 1/(sigma.capyear*sigma.capyear)
-# #   sigma.capyear ~ dunif(0,100)
-# 
-# # Likelihood
-# for (i in 1:nind){
-#    # Define latent state at first capture, we know for sure the animal is alive
-#       z[i,f[i]] <- 1
-# 
-#       for (t in (f[i]+1):h[i]){
-#         # State process
-#             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-#             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-#             logit(phi[i,t-1]) <- int  + age.beta[ageclass[i,t-1]]
-#                                       + bs.beta[bs[i]] 
-#                                       #+ age.bs.beta[ageclass[i,t-1]]*bs[i]
-#                                       # + eps.capyear[capyear[i]]
-#                                       # + weight.beta*weight[i, t-1]
-#                                       + antlers.beta*antlers[i, t-1]
-#                                       + antlers.bs.beta*antlers[i,t-1]*bs[i]
-#                                       # + by.rain.beta*by.rain[i, t-1]
-#                                       
-#           # Observation process
-#             ch[i,t] ~ dbern(mu2[i,t])
-#             mu2[i,t] <- p * z[i,t]
-#       } #t
-#    } #i
-# # 
-# #derived parameters
-#     # for (j in 1:10){ #ageclass
-#       for (k in 1:3){ #site
-#         for (i in 1:100 ) { #antler simulation
-#       survival[i,k] <- exp(int + bs.beta[k] + antlers.beta*antler.sim[i] )/
-#                             (1 + exp(int  + bs.beta[k] + antlers.beta*antler.sim[i] ))
-#       } #for k 
-#    # }   #for j+ age.beta[j]
-#     } # for i 
-# # + age.bs.beta[j]*k+ age.bs.beta[j]*k
-# # 
-# #     for (j in 1:9){
-# #       for (k in 1:3){
-# #         surv_diff[j,k] <- survival[j+1, k] - survival[j,k]
-# #       }
-# #     }
-# # 
-# #     for (j in 1:10){
-# #       for (k in 1:3){
-# #         site_diff[j,k] <- survival[j, 1] - survival[j,2]
-# #       }
-# #     }
-# 
-# }
-# ",fill = TRUE)
-# sink()
-# 
-# 
-# #Function for latent state
-# z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
-# 
-# for(i in 1:dim(z.init)[1]){
-#   z.init[i, f[i]:h[i]] <- 1
-#   z.init[i,f[i]] <- NA
-# }
-# 
-# 
-# # Bundle data
-# jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = ageclass, bs = bs,# by.rain = by.rain,
-#                   #capyear = capyear, weight = weight, NA_indices = NA_indices, occasions = occasions,
-#                   antlers = antlers, NA_indices_antlers = NA_indices_antlers, occasions_antlers = occasions_antlers,
-#                   antler.sim = antler.sim)
-# 
-# # Initial values
-# inits <- function(){list(int = rnorm(1,0,1), z = z.init,
-#                          age.beta = c(NA, rnorm(14,0,1)),
-#                          bs.beta = c(NA, rnorm(2,0,1)),
-#                          # age.bs.beta = c(NA, rnorm(14,0,1)),
-#                          # eps.capyear = c(NA, runif(14, 0, 100)),
-#                          # weight.beta = runif(1, 0, 100),
-#                          # weight = weight.init,
-#                          antlers.beta = runif(1, 0, 100),
-#                          antlers = antlers.init)}
-# #  by.rain.beta = rnorm(1,0,1))}
-# 
-# 
-# parameters <- c('int', 'age.beta','antlers.beta','bs.beta', 'survival') #, 'age.bs.beta', 'by.rain.beta', 'weight.beta', 'antlers.beta',
-# # 'survival','surv_diff', 'site_diff')#, 
-# 
-# # MCMC settings
-# ni <- 10000
-# nt <- 10
-# nb <- 5000
-# nc <- 3
-# 
-# # Call JAGS from R (BRT 3 min)
-# phi.antlers <- jagsUI(jags.data, inits, parameters, "phi.antlers.jags", n.chains = nc,
-#                       n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
-# 
-# print(phi.antlers)
-# MCMCtrace(phi.antlers)
-# write.csv(phi.age$summary, './output/phi.age.site.weight.ant.byrain.csv', row.names = T)
-# 
-# 
-# #create a tibble of the posterior draws
-# gather<- phi.antlers %>% gather_draws(survival[antler, site]) #this creates a dataframe in long format with indexing
-# gather$site <- as.factor(gather$site)
-# # gather$age <- as.factor(gather$age)
-# 
-# #find first row for 2nd rain value
-# first_idx <- which(gather$antler == 2)[1] # 4500 values of antler 1
-# 
-# #unscale and uncenter rain.sim
-# antler.sim.usc <- (antler.sim * sd(data$bcsin, na.rm = T)) + mean(data$bcsin, na.rm = T)
-# 
-# #create vector containing simulated rainfall data but in the format to sync up with gather
-# vector <- numeric(0)
-# antler.sim.usc1 <- for (i in antler.sim.usc) {
-#   rep_i <- rep(i, times = 4500)
-#   vector <- c(vector,rep_i)
-#   
-# }
-# 
-# gather$antlerscore <- vector
-# 
-# #plot for ageclass 7
-# 
-# phi.plot.7<- gather %>% 
-#   # subset(gather, age %in% '7') %>%
-#   ggplot(aes(x=antlerscore, y=.value, color = site, fill = site)) +
-#   stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI
-#   scale_fill_viridis_d(alpha = .2, labels = c("DMP", "CONTROL", "TGT") ) + #this allowed me to opacify the ribbon but not the line
-#   scale_color_viridis_d(labels = c("DMP", "CONTROL", "TGT"))+ #color of line but no opacification
-#   labs(x = "Antler Score (in)", y = "ANNUAL SURVIVAL PROBABILITY", title = "Survival by antler score and site")+
-#   theme_bw() +
-#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-#         panel.border = element_blank(),
-#         axis.line = element_line(),
-#         legend.position= c(.8,0.1),
-#         legend.title = element_blank(),
-#         legend.text = element_text(size = 28),
-#         plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
-#         axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
-#         axis.text = element_text(face='bold',size = 28),
-#         # axis.text.x = element_text(angle = 45, hjust = 1),
-#         panel.background = element_rect(fill='transparent'), #transparent panel bg
-#         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
-# ggsave('./figures/phi.site.rain.jpg', phi.plot.7, width = 15, height = 10)
+

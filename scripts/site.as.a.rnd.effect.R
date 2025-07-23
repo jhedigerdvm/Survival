@@ -554,16 +554,11 @@ for (u in 1:12){  #prior for year effect
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,100)
 
-# initialize discrepancy
-  fit_obs_sum <- 0
-  fit_rep_sum <- 0
 
 # Likelihood
 for (i in 1:nind){
    # Define latent state at first capture, we know for sure the animal is alive
       z[i,f[i]] <- 1
-      z.rep[i, f[i]] <- 1  # simulated latent state
-
 
       for (t in (f[i]+1):h[i]){
         # State process
@@ -580,21 +575,12 @@ for (i in 1:nind){
               ch[i,t] ~ dbern(mu2[i,t])
               mu2[i,t] <- p * z[i,t]
 
-        #posterior predictive data
-            z.rep[i,t] ~ dbern(mu1[i,t])
-            mu2.rep[i, t] <- p * z.rep[i, t]
-            ch.rep[i, t] ~ dbern(mu2.rep[i, t])
-        
-        # Freeman–Tukey discrepancy
-              fit_obs[i,t] <- pow(sqrt(ch[i, t]) - sqrt(mu2[i, t] + 0.5), 2)
-              fit_rep[i,t] <- pow(sqrt(ch.rep[i, t]) - sqrt(mu2.rep[i, t] + 0.5), 2)
+      
         
      } #t
    } #i
    
     
-    fit_obs_sum <- sum(fit_obs[1:nind, 1:ncol])
-    fit_rep_sum <- sum(fit_rep[1:nind, 1:ncol])
 
    # #derived parameters
    #    for (j in 1:100 ) { #age simulation, beta1
@@ -657,23 +643,6 @@ print(phi.age)
 MCMCtrace(phi.age)
 write.csv(phi.age$summary, './output/phi.agexsite.csv', row.names = T)
 
-#Posterior predictive p value
-# Sum over all individuals and time for each MCMC iteration
-pp.check(phi.age,fit_obs, fit_rep)
-
-D_obs_sum <- apply(phi.age$sims.list$D_obs, 1, sum)
-D_rep_sum <- apply(phi.age$sims.list$D_rep, 1, sum)
-
-# Posterior predictive p-value
-ppp <- mean(D_rep_sum > D_obs_sum)
-cat("Posterior predictive p-value:", round(ppp, 3), "\n")
-
-# Histogram
-hist(D_rep_sum, col = "skyblue", main = "Posterior Predictive Check",
-     xlab = "Sum of Discrepancy (D_rep)", breaks = 30)
-abline(v = mean(D_obs_sum), col = "red", lwd = 2)
-legend("topright", legend = c("Mean D_obs"), col = "red", lwd = 2)
-
 #prepare to create ggplot with posteriors
 #create a tibble of the posterior draws
 gather<- phi.age %>% gather_draws(survival[age, site]) #this creates a dataframe in long format with indexing
@@ -720,5 +689,4 @@ phi.plot<- gather %>%
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
 ggsave('./figures/phi.agexsite.jpg', phi.plot, width = 15, height = 10)
-
 

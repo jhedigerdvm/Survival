@@ -7,43 +7,29 @@ p ~ dbeta(1, 1)
 
 #priors
 
-int ~ dnorm(0,0.01)
-age.beta[1] <- 0      #ageclass
-bs.beta[1] <- 0       #birth site
-# age.bs.beta[1] <- 0   #age site interaction
-# eps.capyear[1] <- 0   #capture year random effect
+  beta1 ~ dnorm(0,0.001)  # age beta continuous
+  beta2 ~ dlnorm(0, 0.1)    # morpho beta continuous
+  beta3 ~ dnorm(0,0.001)  #birth year rain beta continuous
 
-for (u in 2:15){
-  age.beta[u] ~ dnorm(0,0.01)
+  
+for ( u in 1:3) { 
+  beta4[u] ~ dlnorm(0, 0.1)#interaction between morpho and site
+  beta5[u] ~ dnorm(0, 0.001) #site effect
 }
-# 
-for (u in 2:3){
-  bs.beta[u] ~ dnorm(0, 0.01)
-}
-# 
-# for (u in 2:15){
-#   age.bs.beta[u] ~ dnorm(0, 0.01)
-#}
 
-antlers.beta ~ dunif(0, 100)
-# by.rain.beta ~ dnorm(0,0.001)
-
-for (u in 1:nind){
-  for (j in 1:occasions_antlers[u]){  #prior for missing weights
-  antlers[u,NA_indices_antlers[u,j]] ~ dnorm( 0, 0.01)
+for (u in 1:nind){      #prior for missing morphometrics
+  for (j in 1:occasions[u]){
+  morpho[u,NA_indices[u,j]] ~ dnorm( 0, 0.01)
      }
 }
 
+for (u in 1:12){  #prior for year effect
+  eps2[u] ~ dnorm(0,tau)
+}
 
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,100)
 
-# 
-# for (u in 2:15){
-#   eps.capyear[u] ~ dnorm(0, tau.capyear)
-# }
-#   tau.capyear <- 1/(sigma.capyear*sigma.capyear)
-#   sigma.capyear ~ dunif(0,100)
 
 # Likelihood
 for (i in 1:nind){
@@ -54,42 +40,39 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int  + age.beta[ageclass[i,t-1]]
-                                      + bs.beta[bs[i]] 
-                                      #+ age.bs.beta[ageclass[i,t-1]]*bs[i]
-                                      # + eps.capyear[capyear[i]]
-                                      # + weight.beta*weight[i, t-1]
-                                      + antlers.beta*antlers[i, t-1]
-                                      # + by.rain.beta*by.rain[i, t-1]
-                                      
+            logit(phi[i,t-1]) <-  beta1*ageclass[i,t-1]
+                                  + beta2*morpho[i, t-1]
+                                  + beta3*by.rain[i, t-1]
+                                  + beta4[bs[i]]*morpho[i,t-1]
+                                  + beta5[bs[i]]
+                                  + eps2[year[i]]
+
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
             mu2[i,t] <- p * z[i,t]
+            
+         
+            
       } #t
    } #i
-# 
-#derived parameters
-    # for (j in 1:10){ #ageclass
-      for (k in 1:3){ #site
-        for (i in 1:100 ) { #antler simulation
-      survival[i,k] <- exp(int + bs.beta[k] + antlers.beta*antler.sim[i] )/
-                            (1 + exp(int  + bs.beta[k] + antlers.beta*antler.sim[i] ))
-      } #for k 
-   # }   #for j+ age.beta[j]
-    } # for i 
-# + age.bs.beta[j]*k+ age.bs.beta[j]*k
-# 
-#     for (j in 1:9){
-#       for (k in 1:3){
-#         surv_diff[j,k] <- survival[j+1, k] - survival[j,k]
-#       }
-#     }
-# 
-#     for (j in 1:10){
-#       for (k in 1:3){
-#         site_diff[j,k] <- survival[j, 1] - survival[j,2]
-#       }
-#     }
+
+   #derived parameters
+      for (i in 1:100 ) { #antler simulation, beta2
+      for (j in 1:3){ #site, beta5
+
+      survival[i,j] <- exp( beta2*morpho.sim[i]  + beta5[j] + beta4[j]*morpho.sim[i] )/
+                            (1 + exp( beta2*morpho.sim[i]  + beta5[j] + beta4[j]*morpho.sim[i]))
+      
+    } # for j
+    } # for l
+    
+      for (i in c(1,50,100)){
+      for (j in 1:3){
+        
+        surv_diff[i,j] <- survival[i,j] - survival[i,1]
+      }
+      }
+
 
 }
 

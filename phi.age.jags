@@ -6,13 +6,18 @@ p ~ dbeta(1, 1)
 
 
 #priors
-
-  beta1 ~ dnorm(0,0.1)  # age beta continuous
-  beta2 ~ dlnorm(0, 0.1)    # morpho beta continuous
-  beta3 ~ dnorm(0,0.01)  #birth year rain beta continuous
+  int ~ dnorm(0,0.001)
+  beta4[1] <- 0
+  beta5[1] <- 0
   
-for ( u in 1:3) { #interaction between age and site
-  beta4[u] ~ dnorm(0, 1)
+  beta1 ~ dnorm(0, 0.001)  # age beta continuous
+  beta2 ~ dlnorm(0, 0.1)    # morpho beta continuous
+  beta3 ~ dnorm(0,0.001)  #birth year rain beta continuous
+
+  
+for ( u in 2:3) { 
+  beta4[u] ~ dnorm(0, 0.001)#interaction between age and site
+  beta5[u] ~ dnorm(0, 0.001) #site effect
 }
 
 for (u in 1:nind){      #prior for missing morphometrics
@@ -21,10 +26,6 @@ for (u in 1:nind){      #prior for missing morphometrics
      }
 }
 
-for (u in 1:3){         #prior for random site effect
-  eps1[u] ~ dlnorm(0,tau)
-  }
-
 for (u in 1:12){  #prior for year effect
   eps2[u] ~ dnorm(0,tau)
 }
@@ -32,58 +33,48 @@ for (u in 1:12){  #prior for year effect
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,100)
 
-# initialize discrepancy
-  fit_obs_sum <- 0
-  fit_rep_sum <- 0
 
 # Likelihood
 for (i in 1:nind){
    # Define latent state at first capture, we know for sure the animal is alive
       z[i,f[i]] <- 1
-      z.rep[i, f[i]] <- 1  # simulated latent state
-
 
       for (t in (f[i]+1):h[i]){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- eps1[bs[i]] + beta1*ageclass[i,t-1]
-                                      + beta2*morpho[i, t-1]
-                                      + beta3*by.rain[i, t-1]
-                                      + beta4[bs[i]]*ageclass[i,t-1]
-                                      + eps2[year[i]]
-                                      
+            logit(phi[i,t-1]) <-  int + beta1*ageclass[i,t-1]
+                                  + beta2*morpho[i, t-1]
+                                  + beta3*by.rain[i, t-1]
+                                  + beta4[bs[i]]*ageclass[i,t-1]
+                                  + beta5[bs[i]]
+                                  + eps2[year[i]]
 
-        # Observation process
-              ch[i,t] ~ dbern(mu2[i,t])
-              mu2[i,t] <- p * z[i,t]
-
-        #posterior predictive data
-            z.rep[i,t] ~ dbern(mu1[i,t])
-            mu2.rep[i, t] <- p * z.rep[i, t]
-            ch.rep[i, t] ~ dbern(mu2.rep[i, t])
-        
-        # Freeman–Tukey discrepancy
-              fit_obs[i,t] <- pow(sqrt(ch[i, t]) - sqrt(mu2[i, t] + 0.5), 2)
-              fit_rep[i,t] <- pow(sqrt(ch.rep[i, t]) - sqrt(mu2.rep[i, t] + 0.5), 2)
-        
-     } #t
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+            
+         
+            
+      } #t
    } #i
-   
-    
-    fit_obs_sum <- sum(fit_obs[1:nind, 1:ncol])
-    fit_rep_sum <- sum(fit_rep[1:nind, 1:ncol])
 
-   # #derived parameters
-   #    for (j in 1:100 ) { #age simulation, beta1
-   #    for (l in 1:3){ #site, eps1
-   # 
-   #    survival[j,l] <- exp( beta1*age.sim[j]  + eps1[l] + beta4[l]*age.sim[j] )/ 
-   #                          (1 + exp(beta1*age.sim[j]  + eps1[l] + beta4[l]*age.sim[j]  )) 
-   #  #   } #for k
-   #  # }   #for j
-   #  } # for i
-   #  } # for l
+   #derived parameters
+      for (i in 1:100 ) { #age simulation, beta1
+      for (j in 1:3){ #site, beta5
+
+      survival[i,j] <- exp( beta1*age.sim[i]  + beta5[j] + beta4[j]*age.sim[i] )/
+                            (1 + exp( beta1*age.sim[i]  + beta5[j] + beta4[j]*age.sim[i]))
+
+    } # for j
+    } # for l
+
+      for (i in c(1,50,100)){
+      for (j in 1:3){
+
+        surv_diff[i,j] <- survival[i,j] - survival[i,1]
+      }
+      }
 
 
 }

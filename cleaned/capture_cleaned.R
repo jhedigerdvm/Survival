@@ -206,3 +206,64 @@ data1 <- data1 %>% rename(cy.rain = annual.x)
 data1$by.rain.sc <- scale(data1$by.rain)
 
 write.csv(data1, './cleaned/final.ch1.csv', row.names = F)
+
+#add capyear-1 rain and birthyear-1 rain to final.ch1.csv
+data<- read.csv("./cleaned/final.ch1.csv", header = T)
+rain22<- read.csv("./cleaned/rainfall_2022.csv", header = T)
+
+#create empty columns
+data$cy.rain.oneprior <- NA
+data$by.rain.oneprior <- NA
+
+#add column with carryover capyyear and birthyear
+data$capyear.prior <- data$year - 1
+data$birthyear.prior <- data$birth_year-1
+
+library(dplyr)
+
+#create additional birthsite column to match bs for rain22 df
+data1 <- data %>%
+  mutate(birthsite_match = ifelse(bs == "dmp", "wy", bs))
+
+#temporarily rename year in rain22 to match capyear.prior in data1
+rain22_renamed <- rain22 %>%
+  rename(capyear.prior = year) %>% 
+  select(birthsite, capyear.prior, annual)
+
+# Left join and bring in annual rain
+data1 <- data1 %>%
+  left_join(rain22_renamed, 
+            by = c("birthsite_match" = "birthsite", "capyear.prior")) %>%
+  rename(cy.rain.one.prior = annual) #%>%
+  #select(-birthsite_match)  # optional: remove helper column
+
+#rename capyear prior to birthyear prior
+rain22_renamed <- rain22 %>%
+  rename(birthyear.prior = year) %>% 
+  select(birthsite, birthyear.prior, annual)
+
+# Left join and bring in annual rain
+data1 <- data1 %>%
+  left_join(rain22_renamed, 
+            by = c("birthsite_match" = "birthsite", "birthyear.prior")) %>%
+  rename(by.rain.one.prior = annual) #%>%
+#select(-birthsite_match)  # optional: remove helper column
+
+# remove unnecessary columns
+data2 <- data1 %>%
+            select(-c(birthsite_match, cy.rain.oneprior, 
+                      by.rain.oneprior, capyear.prior, birthyear.prior))  # optional: remove helper column
+
+#scale and center capyear one year prior rain
+data2$cy.rain.one.prior.sc <- scale(data2$cy.rain.one.prior)
+
+
+#scale and center birth year one year prior rain
+data2$by.rain.one.prior.sc <- scale(data2$by.rain.one.prior)
+
+write.csv(data2, './cleaned/ch.carryoverrain.csv', row.names = F)
+
+data<- read.csv('./cleaned/final.ch1.csv', header=T)
+carryover <- read.csv('./cleaned/ch.carryoverrain.csv', header = T)
+
+

@@ -1,0 +1,80 @@
+
+model {
+
+#prior for recapture prob
+  p ~ dbeta(1, 1)
+  
+#priors
+  int ~ dnorm(0,0.001)
+  beta4[1] <- 0
+  beta5[1] <- 0
+  
+  beta1 ~ dnorm(0, 0.001)  # age beta continuous
+  beta2 ~ dlnorm(0, 0.1)    # morpho beta continuous
+  beta3 ~ dnorm(0,0.001)  #rain beta continuous
+
+  
+for ( u in 2:3) { 
+  beta4[u] ~ dnorm(0, 0.001)#interaction between rain and site
+  beta5[u] ~ dnorm(0, 0.001) #site effect
+}
+
+for (u in 1:nind){      #prior for missing morphometrics
+  for (j in 1:occasions[u]){
+  morpho[u,NA_indices[u,j]] ~ dnorm( 0, 0.01)
+     }
+}
+
+for (u in 1:12){  #prior for year effect
+  eps2[u] ~ dnorm(0,tau)
+}
+
+tau <- 1/(sigma*sigma)
+sigma ~ dunif(0,100)
+
+
+# Likelihood
+for (i in 1:nind){
+   # Define latent state at first capture, we know for sure the animal is alive
+      z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):h[i]){
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <-  int + beta1*ageclass[i,t-1]
+                                  + beta2*morpho[i, t-1]
+                                  + beta3*rain[i, t-1]
+                                  + beta4[bs[i]]*rain[i,t-1]
+                                  + beta5[bs[i]]
+                                  + eps2[year[i]]
+
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+
+
+
+      } #t
+   } #i
+
+   #derived parameters
+      for (i in 1:100 ) { #rain simulation, beta3
+      for (j in 1:3){ #site, beta5
+
+      survival[i,j] <- exp( int + beta3*rain.sim[i]  + beta5[j] + beta4[j]*rain.sim[i] )/
+                            (1 + exp( int + beta3*rain.sim[i]  + beta5[j] + beta4[j]*rain.sim[i]))
+
+    } # for j
+    } # for l
+
+      for (i in c(1,50,100)){
+      for (j in 1:3){
+
+        surv_diff[i,j] <- survival[i,j] - survival[i,1]
+      }
+      }
+
+
+}
+

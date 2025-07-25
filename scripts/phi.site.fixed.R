@@ -173,6 +173,21 @@ by.rain.prior.sim <- seq(from = min(by.prior.rain, na.rm = T), to = max(by.prior
 nvalues <- 100
 cy.rain.prior.sim <- seq(from = min(cy.prior.rain, na.rm = T), to = max(cy.prior.rain, na.rm = T), length.out = nvalues) #obtained to and from values from max and min of carryover rainfall in data
 
+#lets make rainfall categorical with low intermediate and high rainfall based upon quantiles
+data <- data %>%
+  mutate(cy.rain.group = ntile(cy.rain, 3))
+
+data <- data %>%
+  mutate(by.rain.group = ntile(by.rain, 3))
+
+by.rain.group <- data$by.rain.group
+cy.rain.group <- data$cy.rain.group
+
+by.rain.group <- unique(data[, c("animal_id", "by.rain.group")])
+by.rain.group <- as.numeric(factor(by.rain.group$by.rain.group)) # 1 = dmp, 2 = ey, 3 = wy
+by.rain.group <- by.rain.group %>% #two duplicates in the data
+  distinct(animal_id, .keep_all = TRUE)
+by.rain.group <- by.rain.group$by.rain.group
 
 
 # ---- Model1: phi ~ weight x site interaction, fixed effect ----
@@ -1448,4 +1463,337 @@ phi.plot<- gather %>%
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
 ggsave('./figures/phi.priorcyrainxsite.fe.jpg', phi.plot, width = 15, height = 10)
+
+
+
+# ---- Model8: phi ~ capture year rain(cat) x site interaction, fixed effect ----
+
+# Specify model in JAGS language
+set.seed(100)
+sink("phi.rain.jags")
+cat("
+model {
+
+#prior for recapture prob
+  p ~ dbeta(1, 1)
+  
+#priors
+  int ~ dnorm(0,0.001)
+  beta3[1] <- 0
+  beta4[1] <- 0
+  beta5[1] <- 0
+  
+  beta1 ~ dnorm(0, 0.001)  # age beta continuous
+  beta2 ~ dlnorm(0, 0.1)    # morpho beta continuous
+
+  
+for ( u in 2:3) { 
+  beta3[u] ~ dnorm(0, 0.001) #rain beta categorical
+  beta4[u] ~ dnorm(0, 0.001)#interaction between rain and site
+  beta5[u] ~ dnorm(0, 0.001) #site effect
+}
+
+for (u in 1:nind){      #prior for missing morphometrics
+  for (j in 1:occasions[u]){
+  morpho[u,NA_indices[u,j]] ~ dnorm( 0, 0.01)
+     }
+}
+
+for (u in 1:12){  #prior for year effect
+  eps2[u] ~ dnorm(0,tau)
+}
+
+tau <- 1/(sigma*sigma)
+sigma ~ dunif(0,100)
+
+
+# Likelihood
+for (i in 1:nind){
+   # Define latent state at first capture, we know for sure the animal is alive
+      z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):h[i]){
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <-  int + beta1*ageclass[i,t-1]
+                                  + beta2*morpho[i, t-1]
+                                  + beta3[rain[i]]
+                                  + beta4[bs[i]]*rain[i]
+                                  + beta5[bs[i]]
+                                  + eps2[year[i]]
+
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+
+
+
+      } #t
+   } #i
+
+   #derived parameters
+      for (i in 1:3 ) { #rain  beta3
+      for (j in 1:3){ #site, beta5
+
+      survival[i,j] <- exp( int + beta3[i]  + beta5[j] + beta4[j]*i )/
+                            (1 + exp( int + beta3[i]  + beta5[j] + beta4[j]*i))
+
+    } # for j
+    } # for l
+
+      # for (i in c(1,50,100)){
+      # for (j in 1:3){
+      # 
+      #   surv_diff[i,j] <- survival[i,j] - survival[i,1]
+      # }
+      # }
+
+
+}
+",fill = TRUE)
+sink()
+
+
+#Function for latent state
+z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+
+for(i in 1:dim(z.init)[1]){
+  z.init[i, f[i]:h[i]] <- 1
+  z.init[i,f[i]] <- NA
+}
+
+
+# Bundle data
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ncol = ncol(ch), ageclass = age.sc, rain = cy.rain.group,
+                  bs = bs, age.sim = age.sim, morpho.sim = weight.sim, rain.sim = cy.rain.sim,
+                  NA_indices = NA_indices_weight, occasions = occasions_weight,morpho = weight, year = capyear)
+
+# Initial values
+inits <- function(){list(
+  int = rnorm(1,0,1),
+  z = z.init,
+  morpho = weight.init,
+  beta1 = rnorm(1,0,1), #age beta
+  beta2 = rlnorm(1, 0, 1),#morpho beta
+  beta3 = c(NA, rnorm(2, 0, 1)), # rain beta
+  beta4 = c(NA, rnorm(2,0,1)),#rain and site interaction
+  beta5 = c(NA, rnorm(2,0,1)), #site effect
+  eps2 = rnorm(12, 0, 1)
+)
+}
+
+parameters <- c('int','beta1','beta2', 'beta3', 'beta4', 'beta5', 'eps2', 'surv_diff', 'survival')
+
+# MCMC settings
+ni <- 5000
+nt <- 10
+nb <- 1000
+nc <- 3
+
+# Call JAGS from R (BRT 3 min)
+phi.rain <- jagsUI(jags.data, inits, parameters, "phi.rain.jags", n.chains = nc,
+                   n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+
+print(phi.rain)
+MCMCtrace(phi.rain)
+write.csv(phi.rain$summary, './output/phi.cyrainxsite.group.csv', row.names = T)
+
+#prepare to create ggplot with posteriors
+#create a tibble of the posterior draws
+gather<- phi.rain %>% gather_draws(survival[rain, site]) #this creates a dataframe in long format with indexing
+gather$site <- as.factor(gather$site)
+gather$rain <- as.factor(gather$rain)
+
+#plot for average age individual
+
+phi.plot<- gather %>%
+  ggplot(aes(x=rain, y=.value, color = site, fill = site)) +
+  stat_pointinterval(position = position_dodge(width = .4))+ #statline ribbon takes posterior estimates and calculates CRI
+  scale_fill_viridis_d(option = 'turbo', alpha = .2, labels = c("DMP", "CONTROL", "TGT") ) + #this allowed me to opacify the ribbon but not the line
+  scale_color_viridis_d(option = 'turbo', labels = c("DMP", "CONTROL", "TGT"))+ #color of line but no opacification
+  labs(x = "Capture Year Rainfall", y = "ANNUAL SURVIVAL PROBABILITY", title = "")+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = "inside",
+        legend.position.inside = c(0.1,0.1),          # x, y inside the plot area
+        legend.justification = c("left", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+        legend.text = element_text(size = 28),
+        legend.title = element_blank(),
+        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 28),
+        # axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+phi.plot
+ggsave('./figures/phi.cyrainxsite.cat.jpg', phi.plot, width = 15, height = 10)
+
+
+# ---- Model9: phi ~ birth year rain(cat) x site interaction, fixed effect ----
+
+# Specify model in JAGS language
+set.seed(100)
+sink("phi.rain.jags")
+cat("
+model {
+
+#prior for recapture prob
+  p ~ dbeta(1, 1)
+  
+#priors
+  int ~ dnorm(0,0.001)
+  beta3[1] <- 0
+  beta4[1] <- 0
+  beta5[1] <- 0
+  
+  beta1 ~ dnorm(0, 0.001)  # age beta continuous
+  beta2 ~ dlnorm(0, 0.1)    # morpho beta continuous
+
+  
+for ( u in 2:3) { 
+  beta3[u] ~ dnorm(0, 0.001) #rain beta categorical
+  beta4[u] ~ dnorm(0, 0.1)#interaction between rain and site
+  beta5[u] ~ dnorm(0, 0.001) #site effect
+}
+
+for (u in 1:nind){      #prior for missing morphometrics
+  for (j in 1:occasions[u]){
+  morpho[u,NA_indices[u,j]] ~ dnorm( 0, 0.01)
+     }
+}
+
+for (u in 1:12){  #prior for year effect
+  eps2[u] ~ dnorm(0,tau)
+}
+
+tau <- 1/(sigma*sigma)
+sigma ~ dunif(0,100)
+
+
+# Likelihood
+for (i in 1:nind){
+   # Define latent state at first capture, we know for sure the animal is alive
+      z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):h[i]){
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <-  int + beta1*ageclass[i,t-1]
+                                  + beta2*morpho[i, t-1]
+                                  + beta3[rain[i]]
+                                  + beta4[bs[i]]*rain[i]
+                                  + beta5[bs[i]]
+                                  + eps2[year[i]]
+
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+
+
+
+      } #t
+   } #i
+
+   #derived parameters
+      for (i in 1:3 ) { #rain  beta3
+      for (j in 1:3){ #site, beta5
+
+      survival[i,j] <- exp( int + beta3[i]  + beta5[j] + beta4[j]*i )/
+                            (1 + exp( int + beta3[i]  + beta5[j] + beta4[j]*i))
+
+    } # for j
+    } # for l
+
+      # for (i in c(1,50,100)){
+      # for (j in 1:3){
+      # 
+      #   surv_diff[i,j] <- survival[i,j] - survival[i,1]
+      # }
+      # }
+
+
+}
+",fill = TRUE)
+sink()
+
+
+#Function for latent state
+z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+
+for(i in 1:dim(z.init)[1]){
+  z.init[i, f[i]:h[i]] <- 1
+  z.init[i,f[i]] <- NA
+}
+
+
+# Bundle data
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ncol = ncol(ch), ageclass = age.sc, rain = by.rain.group,
+                  bs = bs, age.sim = age.sim, morpho.sim = weight.sim, rain.sim = cy.rain.sim,
+                  NA_indices = NA_indices_weight, occasions = occasions_weight,morpho = weight, year = capyear)
+
+# Initial values
+inits <- function(){list(
+  int = rnorm(1,0,1),
+  z = z.init,
+  morpho = weight.init,
+  beta1 = rnorm(1,0,1), #age beta
+  beta2 = rlnorm(1, 0, 1),#morpho beta
+  beta3 = c(NA, rnorm(2, 0, 1)), # rain beta
+  beta4 = c(NA, rnorm(2,0,1)),#rain and site interaction
+  beta5 = c(NA, rnorm(2,0,1)), #site effect
+  eps2 = rnorm(12, 0, 1)
+)
+}
+
+parameters <- c('int','beta1','beta2', 'beta3', 'beta4', 'beta5', 'eps2', 'surv_diff', 'survival')
+
+# MCMC settings
+ni <- 5000
+nt <- 10
+nb <- 1000
+nc <- 3
+
+# Call JAGS from R (BRT 3 min)
+phi.rain <- jagsUI(jags.data, inits, parameters, "phi.rain.jags", n.chains = nc,
+                   n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+
+print(phi.rain)
+MCMCtrace(phi.rain)
+write.csv(phi.rain$summary, './output/phi.byrainxsite.group.csv', row.names = T)
+
+#prepare to create ggplot with posteriors
+#create a tibble of the posterior draws
+gather<- phi.rain %>% gather_draws(survival[rain, site]) #this creates a dataframe in long format with indexing
+gather$site <- as.factor(gather$site)
+gather$rain <- as.factor(gather$rain)
+
+#plot for average age individual
+
+phi.plot<- gather %>%
+  ggplot(aes(x=rain, y=.value, color = site, fill = site)) +
+  stat_pointinterval(position = position_dodge(width = .4))+ #statline ribbon takes posterior estimates and calculates CRI
+  scale_fill_viridis_d(option = 'turbo', alpha = .2, labels = c("DMP", "CONTROL", "TGT") ) + #this allowed me to opacify the ribbon but not the line
+  scale_color_viridis_d(option = 'turbo', labels = c("DMP", "CONTROL", "TGT"))+ #color of line but no opacification
+  labs(x = "Birth Year Rainfall", y = "ANNUAL SURVIVAL PROBABILITY", title = "")+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = "inside",
+        legend.position.inside = c(0.1,0.1),          # x, y inside the plot area
+        legend.justification = c("left", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+        legend.text = element_text(size = 28),
+        legend.title = element_blank(),
+        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 28),
+        # axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+phi.plot
+ggsave('./figures/phi.byrainxsite.cat.jpg', phi.plot, width = 15, height = 10)
 

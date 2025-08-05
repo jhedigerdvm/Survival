@@ -12,7 +12,7 @@ p ~ dbeta(1, 1)
   beta3 ~ dnorm(0,0.001)  #birth year rain beta continuous
 
   
-for ( u in 1:3) { 
+for ( u in 1:2) { 
   beta4[u] ~ dlnorm(0, 0.1)#interaction between morpho and site
   beta5[u] ~ dnorm(0, 0.001) #site effect
 }
@@ -23,7 +23,7 @@ for (u in 1:nind){      #prior for missing morphometrics
      }
 }
 
-for (u in 1:12){  #prior for year effect
+for (u in 1:15){  #prior for year effect
   eps2[u] ~ dnorm(0,tau)
 }
 
@@ -58,7 +58,7 @@ for (i in 1:nind){
 
    #derived parameters
       for (i in 1:100 ) { #antler simulation, beta2
-      for (j in 1:3){ #site, beta5
+      for (j in 1:2){ #site, beta5
 
       survival[i,j] <- exp( beta2*morpho.sim[i]  + beta5[j] + beta4[j]*morpho.sim[i] )/
                             (1 + exp( beta2*morpho.sim[i]  + beta5[j] + beta4[j]*morpho.sim[i]))
@@ -67,7 +67,7 @@ for (i in 1:nind){
     } # for l
     
       for (i in c(1,50,100)){
-      for (j in 1:3){
+      for (j in 1:2){
         
         surv_diff[i,j] <- survival[i,j] - survival[i,1]
       }

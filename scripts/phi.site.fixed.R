@@ -185,9 +185,9 @@ cy.rain.group <- data$cy.rain.group
 
 by.rain.group <- unique(data[, c("animal_id", "by.rain.group")])
 by.rain.group <- as.numeric(factor(by.rain.group$by.rain.group)) # 1 = dmp, 2 = ey, 3 = wy
-by.rain.group <- by.rain.group %>% #two duplicates in the data
-  distinct(animal_id, .keep_all = TRUE)
-by.rain.group <- by.rain.group$by.rain.group
+# by.rain.group <- by.rain.group %>% #two duplicates in the data
+#   distinct(animal_id, .keep_all = TRUE)
+# by.rain.group <- by.rain.group$by.rain.group
 
 
 # ---- Model1: phi ~ weight x site interaction, fixed effect ----
@@ -309,9 +309,9 @@ parameters <- c('beta1','beta2', 'beta3', 'beta4', 'beta5', 'eps2', 'surv_diff',
                 )  
 
 # MCMC settings
-ni <- 15000
+ni <- 100
 nt <- 10
-nb <- 10000
+nb <- 5
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
@@ -367,7 +367,7 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
-ggsave('./figures/phi.weightxsite.fe.jpg', phi.plot, width = 15, height = 10)
+ggsave('./figures/phi.weightxsite.fe.jpg', phi.plot, width = 10, height = 10)
 
 
 # ---- Model2: phi ~ antlers x site interaction , fixed effect----
@@ -548,7 +548,7 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
-ggsave('./figures/phi.antlersxsite.fe.jpg', phi.plot, width = 15, height = 10)
+ggsave('./figures/phi.antlersxsite.fe.jpg', phi.plot, width = 10, height = 10)
 
 
 # ---- Model3: phi ~ age x site interaction, fixed effect ----
@@ -733,7 +733,7 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
-ggsave('./figures/phi.agexsite.fe.jpg', phi.plot, width = 15, height = 10)
+ggsave('./figures/phi.agexsite.fe.jpg', phi.plot, width = 10, height = 10)
 
 
 
@@ -915,7 +915,7 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
-ggsave('./figures/phi.byrainxsite.fe.jpg', phi.plot, width = 15, height = 10)
+ggsave('./figures/phi.byrainxsite.fe.jpg', phi.plot, width = 10, height = 10)
 
 
 
@@ -1096,7 +1096,7 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
-ggsave('./figures/phi.cyrainxsite.fe.jpg', phi.plot, width = 15, height = 10)
+ggsave('./figures/phi.cyrainxsite.fe.jpg', phi.plot, width = 10, height = 10)
 
 
 
@@ -1280,7 +1280,7 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
-ggsave('./figures/phi.bypriorrainxsite.fe.jpg', phi.plot, width = 15, height = 10)
+ggsave('./figures/phi.bypriorrainxsite.fe.jpg', phi.plot, width = 10, height = 10)
 
 
 
@@ -1462,7 +1462,7 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
-ggsave('./figures/phi.priorcyrainxsite.fe.jpg', phi.plot, width = 15, height = 10)
+ggsave('./figures/phi.priorcyrainxsite.fe.jpg', phi.plot, width = 10, height = 10)
 
 
 
@@ -1629,7 +1629,7 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
-ggsave('./figures/phi.cyrainxsite.cat.jpg', phi.plot, width = 15, height = 10)
+ggsave('./figures/phi.cyrainxsite.cat.jpg', phi.plot, width = 10, height = 10)
 
 
 # ---- Model9: phi ~ birth year rain(cat) x site interaction, fixed effect ----
@@ -1795,5 +1795,198 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
-ggsave('./figures/phi.byrainxsite.cat.jpg', phi.plot, width = 15, height = 10)
+ggsave('./figures/phi.byrainxsite.cat.jpg', phi.plot, width = 10, height = 10)
+
+
+
+# ---- Model10: phi ~ age (categorical) x site interaction, fixed effect ----
+
+
+#survival as a function of weight (continuous), age (continuous), site random effect, age x site, random effect of capture year
+# Specify model in JAGS language
+set.seed(100)
+sink("phi.age.jags")
+cat("
+model {
+
+#prior for recapture prob
+p ~ dbeta(1, 1)
+
+
+#priors
+  int ~ dnorm(0,0.001)
+  beta1[1] <- 0
+  beta4[1] <- 0
+  beta5[1] <- 0
+  eps2[1] <- 0
+
+for (u in 2:11){
+  beta1[u] ~ dnorm(0, 0.001) #ageclass beta
+
+}
+
+  # beta2 ~ dlnorm(0, 0.1)    # morpho beta continuous
+  # beta3 ~ dnorm(0,0.001)  #birth year rain beta continuous
+
+  
+for ( u in 2:3) { 
+  beta5[u] ~ dnorm(0, 0.001) #site effect
+    beta4[u] ~ dnorm(0, 0.001)#interaction between age and site
+
+}
+
+for (u in 1:nind){      #prior for missing morphometrics
+  for (j in 1:occasions[u]){
+  morpho[u,NA_indices[u,j]] ~ dnorm( 0, 0.01)
+     }
+}
+
+for (u in 2:12){  #prior for year effect
+  eps2[u] ~ dnorm(0,tau)
+}
+
+tau <- 1/(sigma*sigma)
+sigma ~ dunif(0,100)
+
+
+# Likelihood
+for (i in 1:nind){
+   # Define latent state at first capture, we know for sure the animal is alive
+      z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):h[i]){
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <-  int + beta1[ageclass[i,t-1]]
+                                  # + beta2*morpho[i, t-1]
+                                  # + beta3*by.rain[i, t-1]
+                                  + beta4[bs[i]]*ageclass[i,t-1]
+                                  + beta5[bs[i]]
+                                  + eps2[year[i]]
+
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+            
+         
+            
+      } #t
+   } #i
+
+   #derived parameters
+      for (i in 1:11 ) { #age beta1
+      for (j in 1:3){ #site, beta5
+
+      survival[i,j] <- exp( int + beta1[i]  + beta5[j] + beta4[j]*i )/
+                            (1 + exp( int+ beta1[i]  + beta5[j] + beta4[j]*i))
+
+    } # for j
+    } # for l
+
+      # for (i in 1:11){ # age
+      # for (j in 1:3){ #site
+      # 
+      #   surv_diff[i,j] <- survival[i,j] - survival[i,1]
+      # }
+      # }
+
+
+}
+",fill = TRUE)
+sink()
+
+
+#Function for latent state
+z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+
+for(i in 1:dim(z.init)[1]){
+  z.init[i, f[i]:h[i]] <- 1
+  z.init[i,f[i]] <- NA
+}
+
+
+# Bundle data
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ncol = ncol(ch), ageclass = ageclass, by.rain = by.rain,
+                  bs = bs, age.sim = age.sim, morpho.sim = weight.sim, rain.sim = by.rain.sim,
+                  NA_indices = NA_indices_weight, occasions = occasions_weight,morpho = weight, year = capyear)
+
+# Initial values
+inits <- function(){list(
+  
+  int = rnorm(1,0,1), 
+  z = z.init,
+  morpho = weight.init,
+  beta1 = c(NA, rnorm(10,0,1)), #age beta
+  # beta2 = rlnorm(1, 0, 1),#morpho beta
+  # beta3 = rnorm(1, 0, 1), # rain beta
+  beta4 = c(NA, rnorm(2,0,1)),#age and site interaction
+  beta5 = c(NA, rnorm(2,0,1)), #site effect
+  eps2 = c(NA, rnorm(11, 0, 1)) #random effect for capture year
+  
+)
+}
+
+parameters <- c('int', 'beta1','beta2', 'beta3', 'beta4', 'beta5', 'eps2', 'surv_diff', 'survival')  
+
+# MCMC settings
+ni <- 25000
+nt <- 10
+nb <- 20000
+nc <- 3
+
+# Call JAGS from R (BRT 3 min)
+phi.age <- jagsUI(jags.data, inits, parameters, "phi.age.jags", n.chains = nc,
+                  n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+
+print(phi.age)
+MCMCtrace(phi.age)
+write.csv(phi.age$summary, './output/phi.agexsite.fe.csv', row.names = T)
+
+#prepare to create ggplot with posteriors
+#create a tibble of the posterior draws
+gather<- phi.age %>% gather_draws(survival[age, site]) #this creates a dataframe in long format with indexing
+gather$site <- as.factor(gather$site)
+
+#find first row for 2nd rain value
+first_idx <- which(gather$age == 2)[1] # 4500 values of antler 1
+
+#unscale and uncenter rain.sim
+age.sim.usc <- (age.sim * sd(data$ageclass, na.rm = T)) + mean(data$ageclass, na.rm = T)
+
+#create vector containing simulated antler data but in the format to sync up with gather
+vector <- numeric(0)
+age.sim.usc1 <- for (i in age.sim.usc) {
+  rep_i <- rep(i, times = first_idx-1) #change times to match the number of first_idx
+  vector <- c(vector,rep_i)
+  
+}
+
+gather$ageclass <- vector
+
+#plot for average age individual
+
+phi.plot<- gather %>%
+  ggplot(aes(x=ageclass, y=.value, color = site, fill = site)) +
+  stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI
+  scale_fill_viridis_d(option = 'turbo', alpha = .2, labels = c("DMP", "CONTROL", "TGT") ) + #this allowed me to opacify the ribbon but not the line
+  scale_color_viridis_d(option = 'turbo', labels = c("DMP", "CONTROL", "TGT"))+ #color of line but no opacification
+  labs(x = "Age", y = "ANNUAL SURVIVAL PROBABILITY", title = "")+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = "inside",
+        legend.position.inside = c(0.9,0.9),          # x, y inside the plot area
+        legend.justification = c("right", "top"),        # anchor point of the legend box        legend.title = element_blank(),
+        legend.text = element_text(size = 28),
+        legend.title = element_blank(),
+        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 28),
+        # axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+phi.plot
+ggsave('./figures/phi.agexsite.fe.jpg', phi.plot, width = 10, height = 10)
 

@@ -264,6 +264,29 @@ data2$by.rain.one.prior.sc <- scale(data2$by.rain.one.prior)
 write.csv(data2, './cleaned/ch.carryoverrain.csv', row.names = F)
 
 data<- read.csv('./cleaned/final.ch1.csv', header=T)
-carryover <- read.csv('./cleaned/ch.carryoverrain.csv', header = T)
+data <- read.csv('./cleaned/ch.carryoverrain.csv', header = T)
+drought <- read.csv('./raw/pmdi.csv', header = T)
 
+#rename columns and update row 1
+drought <- drought %>%  rename('date' = 'X...Dimmit.County', 'pmdi' = 'Texas.Palmer.Modified.Drought.Index..PMDI.')
+drought <- drought[-1,]
 
+#separate date into month and year
+drought$year <- substr(drought$date, 1, 4)   # first 4 characters
+drought$month  <- substr(drought$date, 5, 6)   # last 2 characters
+drought <- drought[,-1]
+drought <- drought[,c(2,1,3)]
+drought <- drought %>%  mutate(across(c(year, month, pmdi), as.numeric))
+
+spring_pmdi <- drought %>%
+  filter(month %in% 3:5) %>%                     # keep March, April, May for PMDI
+  group_by(year) %>%
+  summarise(pmdi_spring = mean(pmdi, na.rm = TRUE))
+
+data1<- data %>%
+  left_join(spring_pmdi, by = c("year")) #add avg_pmdi_mar_may to master data matching year cap
+
+#scale and center pmdi data
+data1$pmdi_spring.sc <- scale(data1$pmdi_spring)
+
+write.csv(data1, './cleaned/ch.pmdi.csv', row.names = F)

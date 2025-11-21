@@ -1816,9 +1816,9 @@ p ~ dbeta(1, 1)
 #priors
   int ~ dnorm(0,0.001)
   beta1[1] <- 0
-  beta4[1] <- 0
+  # beta4[1] <- 0
   beta5[1] <- 0
-  eps2[1] <- 0
+  #eps2[1] <- 0
 
 for (u in 2:11){
   beta1[u] ~ dnorm(0, 0.001) #ageclass beta
@@ -1831,7 +1831,7 @@ for (u in 2:11){
   
 for ( u in 2:3) { 
   beta5[u] ~ dnorm(0, 0.001) #site effect
-    beta4[u] ~ dnorm(0, 0.001)#interaction between age and site
+   # beta4[u] ~ dnorm(0, 0.001)#interaction between age and site
 
 }
 
@@ -1841,9 +1841,9 @@ for (u in 1:nind){      #prior for missing morphometrics
      }
 }
 
-for (u in 2:12){  #prior for year effect
-  eps2[u] ~ dnorm(0,tau)
-}
+# for (u in 2:12){  #prior for year effect
+#   eps2[u] ~ dnorm(0,tau)
+# }
 
 tau <- 1/(sigma*sigma)
 sigma ~ dunif(0,100)
@@ -1861,9 +1861,9 @@ for (i in 1:nind){
             logit(phi[i,t-1]) <-  int + beta1[ageclass[i,t-1]]
                                   # + beta2*morpho[i, t-1]
                                   # + beta3*by.rain[i, t-1]
-                                  + beta4[bs[i]]*ageclass[i,t-1]
+                                 # + beta4[bs[i]]*ageclass[i,t-1]
                                   + beta5[bs[i]]
-                                  + eps2[year[i]]
+                                  #+ eps2[year[i]]
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -1878,8 +1878,8 @@ for (i in 1:nind){
       for (i in 1:11 ) { #age beta1
       for (j in 1:3){ #site, beta5
 
-      survival[i,j] <- exp( int + beta1[i]  + beta5[j] + beta4[j]*i )/
-                            (1 + exp( int+ beta1[i]  + beta5[j] + beta4[j]*i))
+      survival[i,j] <- exp( int + beta1[i]  + beta5[j] )/# + beta4[j]*i
+                            (1 + exp( int+ beta1[i]  + beta5[j] ))#+ beta4[j]*i
 
     } # for j
     } # for l
@@ -1920,7 +1920,7 @@ inits <- function(){list(
   beta1 = c(NA, rnorm(10,0,1)), #age beta
   # beta2 = rlnorm(1, 0, 1),#morpho beta
   # beta3 = rnorm(1, 0, 1), # rain beta
-  beta4 = c(NA, rnorm(2,0,1)),#age and site interaction
+ # beta4 = c(NA, rnorm(2,0,1)),#age and site interaction
   beta5 = c(NA, rnorm(2,0,1)), #site effect
   eps2 = c(NA, rnorm(11, 0, 1)) #random effect for capture year
   
@@ -1930,9 +1930,9 @@ inits <- function(){list(
 parameters <- c('int', 'beta1','beta2', 'beta3', 'beta4', 'beta5', 'eps2', 'surv_diff', 'survival')  
 
 # MCMC settings
-ni <- 25000
+ni <- 5000
 nt <- 10
-nb <- 20000
+nb <- 1000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)

@@ -7,6 +7,7 @@ library(MCMCvis)
 library(tidybayes)
 library(mcmcr) 
 library(viridis)
+library(nimble)
 library(here)
 
 data <- read.csv('./cleaned/ch.pmdi.csv', header = T)
@@ -166,7 +167,7 @@ p ~ dbeta(1, 1)
   eps1[1] <- 0 #capture year RE
   
   beta3 ~ dnorm(0,0.001)  #capture year spring pmdi
-  beta4 ~ dlnorm(0, 0.01)    # morpho beta
+  #beta4 ~ dlnorm(0, 0.01)    # morpho beta
 
   
   for ( u in 2:15) {
@@ -199,7 +200,7 @@ for (i in 1:nind){
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
             logit(phi[i,t-1]) <-  int + beta1[ageclass[i,t-1]]  #age categorical
                                       + beta3*pmdi[i, t-1]   #capture year pmdi spring
-                                      + beta4* morpho[i, t-1]   #morphology/weight
+                                      #+ beta4* morpho[i, t-1]   #morphology/weight
                                       + eps1[year[i]]           #capture year random effect
 
           # Observation process
@@ -212,25 +213,7 @@ for (i in 1:nind){
    } #i
 
    # #derived parameters
-    #   for (i in 1:100 ) { #weight simulation, beta3
-    #   for (j in 1:2){ #site, beta2
-    # 
-    # 
-    #   phi.weight[i, j] <- exp( int+ beta4*morpho.sim[i]  + beta2[j]  )/
-    #                         (1 + exp( int + beta4*morpho.sim[i]  + beta2[j]))
-    # 
-    # } # for j
-    # } # for l
-# 
-#       for (i in 1:100 ) { #rain simulation, beta3
-#       for (j in 1:2){ #site, beta2
-# 
-#       phi.drought[i, j] <- exp( int + beta3*pmdi.sim[i]  + beta2[j]  )/
-#                             (1 + exp( int + beta3*pmdi.sim[i]  + beta2[j]))
-# 
-#     } # for j
-#     } # for l
-
+ 
     for (i in 1:15 ) { #age beta1
 
       phi.age[i] <- exp( int+ beta1[i]  )/
@@ -271,7 +254,7 @@ inits <- function(){list(
 }
 
 
-parameters <- c('int', 'beta1','beta2', 'beta3', 'beta4', 'eps1', 'phi.age')
+parameters <- c('int', 'beta1','beta2', 'beta3', 'beta4','weight.beta', 'phi.age')
 
 # MCMC settings
 ni <- 10000
@@ -286,7 +269,7 @@ phi.weight <- jagsUI(jags.data, inits, parameters, "phi.weight.jags", n.chains =
 print(phi.weight)
 MCMCtrace(phi.weight)
 
-write.csv(phi.weight$summary, './output/onesitesurvival.csv')
+write.csv(phi.weight$summary, './output/onesitesurvival.noweight.csv')
 # 
 # #create a tibble of the posterior draws
 # gather<- phi.weight %>% gather_draws(phi.weight[weight, site]) #this creates a dataframe in long format with indexing

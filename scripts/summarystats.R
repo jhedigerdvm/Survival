@@ -78,3 +78,7 @@ data %>% group_by(month)  %>%
   summarise(mean = mean(cy.rain*2.54),
             sd = sd(cy.rain*2.54))
 
+
+data <- read.csv('./raw/master_caphist.csv', header = T)
+data <- data %>%  filter(Age > 0.5)
+data %>%  group_by(Status) %>%  summarise(count = n())

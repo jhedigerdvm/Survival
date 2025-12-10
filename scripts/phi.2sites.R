@@ -194,17 +194,24 @@ p ~ dbeta(1, 1)
 for (i in 1:nind){
    # Define latent state at first capture, we know for sure the animal is alive
       z[i,f[i]] <- 1
+      z.new[i, f[i]] <- 1
+
 
       for (t in (f[i]+1):h[i]){
         # State process
-            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            z[i,t] ~ dbern(mu1[i,t])
+            z.new[i,t] ~ dbern(mu1[i,t])
+            
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
             logit(phi[i,t-1]) <-  int + beta1[ageclass[i,t-1]]  #age categorical
                                       + beta2[bs[i]]            #birth site
                                       + beta3*pmdi[i, t-1]   #capture year pmdi spring
                                       + beta4* morpho[i, t-1]   #morphology/weight
                                       + eps1[year[i]]           #capture year random effect
-
+            res[i,t] <- z[i,t] - mu1[i,t]      
+            res.new[i,t] <- z.new[i,t] - mu1[i,t]
+        
+                                    
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
             mu2[i,t] <- p * z[i,t]
@@ -214,25 +221,36 @@ for (i in 1:nind){
       } #t
    } #i
 
+        
    # #derived parameters
-      for (i in 1:100 ) { #weight simulation, beta3
-      for (j in 1:2){ #site, beta2
-
-
-      phi.weight[i, j] <- exp( int+ beta4*morpho.sim[i]  + beta2[j]  )/
-                            (1 + exp( int + beta4*morpho.sim[i]  + beta2[j]))
-
-    } # for j
-    } # for l
-
-      for (i in 1:100 ) { #rain simulation, beta3
-      for (j in 1:2){ #site, beta2
-
-      phi.drought[i, j] <- exp( int + beta3*pmdi.sim[i]  + beta2[j]  )/
-                            (1 + exp( int + beta3*pmdi.sim[i]  + beta2[j]))
-
-    } # for j
-    } # for l
+      
+    fit <- 0
+    fit.new <- 0
+    for (i in 1:nind) {
+        for (t in (f[i] + 1):h[i]) {
+            fit     <- fit     + res[i,t]
+            fit.new <- fit.new + res.new[i,t]
+        }
+    }
+      
+    #   for (i in 1:100 ) { #weight simulation, beta3
+    #   for (j in 1:2){ #site, beta2
+    # 
+    # 
+    #   phi.weight[i, j] <- exp( int+ beta4*morpho.sim[i]  + beta2[j]  )/
+    #                         (1 + exp( int + beta4*morpho.sim[i]  + beta2[j]))
+    # 
+    # } # for j
+    # } # for l
+    # 
+    #   for (i in 1:100 ) { #rain simulation, beta3
+    #   for (j in 1:2){ #site, beta2
+    # 
+    #   phi.drought[i, j] <- exp( int + beta3*pmdi.sim[i]  + beta2[j]  )/
+    #                         (1 + exp( int + beta3*pmdi.sim[i]  + beta2[j]))
+    # 
+    # } # for j
+    # } # for l
 
     for (i in 1:12 ) { #age beta1
     for (j in 1:2){ #site, beta2
@@ -242,10 +260,11 @@ for (i in 1:nind){
 
     } # for j
     } # for l
-
+ 
 }
 ",fill = TRUE)
 sink()
+
 
 
 #Function for latent state
@@ -258,7 +277,8 @@ for(i in 1:dim(z.init)[1]){
 
 
 # Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = ageclass, pmdi = pmdi.spring.sc,
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ntime = ncol(ch), 
+                  ageclass = ageclass, pmdi = pmdi.spring.sc,
                   bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim,
                   NA_indices = NA_indices_weight, occasions = occasions_weight,
                   morpho = weight, year = capyear)
@@ -277,12 +297,12 @@ inits <- function(){list(
 }
 
 
-parameters <- c('int', 'beta1','beta2', 'beta3', 'beta4', 'eps1', 'phi.age')
+parameters <- c('fit', 'fit.new', 'int', 'beta1','beta2', 'beta3', 'beta4', 'eps1', 'phi.age')
 
 # MCMC settings
-ni <- 10000
+ni <- 100
 nt <- 10
-nb <- 5000
+nb <- 1
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)

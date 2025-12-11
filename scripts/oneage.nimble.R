@@ -86,7 +86,6 @@ pmdi.spring.sc.sim <- seq(from = min(pmdi.spring.sc, na.rm = T),
                           length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data
 
 
-
 ##############################################################################
 # 1. MODEL CODE
 ###############################################################################
@@ -97,23 +96,23 @@ code <- nimbleCode({
   p ~ dbeta(1, 1)
   
   # priors
-  alpha ~ dnorm(0, 0.001)
-  
-  beta1[1] <- 0        # age reference
-  eps1[1]  <- 0        # year RE reference
-  
-  beta3 ~ dnorm(0, 0.001)
+    alpha ~ dnorm(0, 0.001)
+    
+    beta1[1] <- 0        # age reference
+    eps1[1]  <- 0        # year RE reference
+    
+    beta3 ~ dnorm(0, 0.001)
   
   # age-class effects
-  for(u in 2:15){
-    beta1[u] ~ dnorm(0, 0.01)
-  }
-  
+    for(u in 2:15){
+      beta1[u] ~ dnorm(0, 0.01)
+    }
+    
   # year RE
-  for(u in 2:14){
-    eps1[u] ~ dnorm(0, tau)
-  }
-  
+    for(u in 2:14){
+      eps1[u] ~ dnorm(0, tau)
+    }
+    
   tau <- 1/(sigma * sigma)
   sigma ~ dunif(0, 100)
   
@@ -122,6 +121,8 @@ code <- nimbleCode({
     
     # latent state initialized at first capture
     z[i, f[i]] <- 1
+    z_rep[i, f[i]] <- 1
+    
     
     for(t in (f[i]+1):h[i]){
       
@@ -129,14 +130,21 @@ code <- nimbleCode({
       z[i,t] ~ dbern(mu1[i,t])
       mu1[i,t] <- phi[i,t-1] * z[i,t-1]
       
+      # z_rep[i,t] ~ dbern(mu1_rep[i,t])
+      # mu1_rep[i,t] <- phi[i,t-1] * z_rep[i,t-1]
+      
       logit(phi[i,t-1]) <- alpha +
-        beta1[ ageclass[i, t-1] ] +
-        beta3 * pmdi[i, t-1] +
-        eps1[ year[i] ]
+                            beta1[ ageclass[i, t-1] ] +
+                            beta3 * pmdi[i, t-1] +
+                            eps1[ year[i] ]
       
       # observation model
       ch[i,t] ~ dbern(mu2[i,t])
       mu2[i,t] <- p * z[i,t]
+      
+      # posterior predictive replicate
+      ch_rep[i,t] ~ dbern(mu2[i,t])
+      mu2[i,t] <- p * z_rep(mu2[i,t])
       
     } #t
   } #i
@@ -211,7 +219,9 @@ conf <- configureMCMC(Rmodel,
                                    'beta3', # pmdi effect
                                    'eps1', # random effect of cap year
                                    'sigma', # hyper parameter
-                                   'phi_age' #derived parameter for age probability
+                                   'phi_age', #derived parameter for age probability
+                                   'z',
+                                   'ch_rep'
                                    ))
 
 
@@ -221,7 +231,6 @@ conf <- configureMCMC(Rmodel,
 
 Rmcmc <- buildMCMC(conf)
 Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
-
 
 ###############################################################################
 # 7. RETURN RESULTS
@@ -235,17 +244,83 @@ samples <- runMCMC(Cmcmc,
                    samplesAsCodaMCMC = TRUE
 )
 
-  
+
+summary <- MCMCsummary(samples, round = 2)
+
+
 
 ###############################################################################
 # 8.  DIAGNOSTIC PLOTS
 ###############################################################################
+MCMCtrace(samples,
+          pdf = FALSE,
+          ind = TRUE,
+          Rhat = TRUE,
+          n.eff = TRUE)
 
-plot(samples)
+
+
+###############################################################################
+# 9.  Post. Pred. Plots
+###############################################################################
 
 # convert CODA to matrix
-post_mat<- as.matrix(samples)
-     
+post <- as.matrix(samples)
+
+rep_cols <- grep("^ch_rep", colnames(post)) #find replicated CH 
+ch_rep_post <- post[, rep_cols]
+
+n_post <- nrow(ch_rep_post)
+nind   <- nrow(ch)
+Tmax   <- ncol(ch)
+
+# array of dim [iterations, individuals, occasions]
+ch_rep_array <- array(ch_rep_post,
+                      dim = c(n_post, nind, Tmax))
+
+T_obs <- sum(ch)
+T_rep <- apply(ch_rep_array, 1, sum)
+meanTrep <- mean(T_rep, na.rm = T)
+
+hist(T_rep,
+     breaks = 40,
+     main = "Posterior Predictive Check",
+     xlab  = "Replicated Discrepancy (T_rep)")
+abline(v = T_obs, col = "red", lwd = 3)
+
+plot(density(T_rep, na.rm = T), main="PPC")
+abline(v = T_obs, col="red", lwd=2)
+
+mean(T_obs >= T_rep)  
+
+
+   
   
+library(coda)
+
+# convert to matrix (iterations × columns)
+post <- as.matrix(samples)
+colnames(post)[1:10]  # inspect column names to confirm format
+
+# find z and z_rep columns (names like "z[1,2]" and "z_rep[1,2]")
+z_cols     <- grep("^z\\[", colnames(post))
+zrep_cols  <- grep("^z_rep\\[", colnames(post))
+
+# basic dimensions
+n_draws <- nrow(post)      # total posterior draws across chains (after thinning)
+nind    <- nrow(ch)
+Tmax    <- ncol(ch)
+
+# extract numeric matrices
+z_post_mat    <- post[, z_cols, drop = FALSE]     # dims: draws x (nind * Tmax)
+zrep_post_mat <- post[, zrep_cols, drop = FALSE]
+
+# convert into arrays: [draw, individual, occasion]
+z_array    <- array(z_post_mat,    dim = c(n_draws, nind, Tmax))
+zrep_array <- array(zrep_post_mat, dim = c(n_draws, nind, Tmax))
+
+# sanity check: dims
+dim(z_array)    # should be c(n_draws, nind, Tmax)
+dim(zrep_array)
 
 

@@ -116,8 +116,6 @@ code <- nimbleCode({
   tau <- 1/(sigma * sigma)
   sigma ~ dunif(0, 100)
   
-  N_obs <- 0 
-  N_rep <- 0 
   
   # STATE + OBSERVATION PROCESS
   for(i in 1:nind){

@@ -116,6 +116,9 @@ code <- nimbleCode({
   tau <- 1/(sigma * sigma)
   sigma ~ dunif(0, 100)
   
+  N_obs <- 0 
+  N_rep <- 0 
+  
   # STATE + OBSERVATION PROCESS
   for(i in 1:nind){
     
@@ -140,18 +143,37 @@ code <- nimbleCode({
       # observation model
       ch[i,t] ~ dbern(mu2[i,t])
       mu2[i,t] <- p * z[i,t]
+      ch_new[i,t] ~ dbern(mu2[i,t])
+      
+      N_obs <- 0 
+      N_rep <- 0 
       
       
+      N_obs[i,t] <- N_obs + ch[i,t] 
+      N_rep[i,t] <- N_rep + ch_new[i,t]
       
+      #I tried the code below but i got an error requiring indexing, which i did above in 152 and 153
+      # N_obs[i,t] <- N_obs + ch[i,t] 
+      # N_rep[i,t] <- N_rep + ch_new[i,t]
+      
+     
     } #t
   } #i
   
-  # derived age-specific phi
-  for(i in 1:15){
-    phi_age[i] <- exp(alpha + beta1[i]) /
-      (1 + exp(alpha + beta1[i]))
-  }
+  #for the code below, i assume I need to assign values for N and first, I tried using with the indexing from my i,t above
+  # for(i in 1:N) {
+  #   for(t in first[i]:T) {
+  #     N_obs<- N_obs + ch[i,t] #this produces a running count of number of individuals in that capture history
+  #     N_rep <-N_rep + ch_new[i,t]
+  #   }
+  # }
   
+  # # derived age-specific phi
+  # for(i in 1:15){
+  #   phi_age[i] <- exp(alpha + beta1[i]) /
+  #     (1 + exp(alpha + beta1[i]))
+  # }
+  # 
 })
 
 
@@ -210,15 +232,13 @@ Cmodel <- compileNimble(Rmodel)
 ###############################################################################
 
 conf <- configureMCMC(Rmodel,
-                      monitors = c('p',
-                                   'alpha', #intercept
-                                    # recapture probability
+                      monitors = c('alpha', #intercept
                                    'beta1', # age effect
                                    'beta3', # pmdi effect
                                    'eps1', # random effect of cap year
                                    'sigma', # hyper parameter
-                                   'phi_age' #derived parameter for age probability
-                                   
+                                   'N_obs',
+                                   'N_rep'
                                    ))
 
 
@@ -234,9 +254,9 @@ Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 ###############################################################################
 
 samples <- runMCMC(Cmcmc,
-                   niter = 5000,
-                   nburnin = 2000,
-                   thin = 10,
+                   niter = 100,
+                   nburnin = 1,
+                   thin = 1,
                    nchains = 3,
                    samplesAsCodaMCMC = TRUE
 )
@@ -245,78 +265,78 @@ samples <- runMCMC(Cmcmc,
 summary <- MCMCsummary(samples, round = 2)
 
 
-
-###############################################################################
-# 8.  DIAGNOSTIC PLOTS
-###############################################################################
-MCMCtrace(samples,
-          pdf = FALSE,
-          ind = TRUE,
-          Rhat = TRUE,
-          n.eff = TRUE)
-
-
-
-###############################################################################
-# 9.  Post. Pred. Plots
-###############################################################################
-post <- as.matrix(samples)
-
-n_samp <- nrow(post)
-nind   <- nrow(ch)
-nocc   <- ncol(ch)
-
-p_samp     <- post[, "p"]
-alpha_samp <- post[, "alpha"]
-beta3_samp <- post[, "beta3"]
-
-beta1_idx <- grep("^beta1\\[", colnames(post))
-eps1_idx  <- grep("^eps1\\[",  colnames(post))
-
-beta1_samp <- post[, beta1_idx]   # n_samp × 15
-eps1_samp  <- post[, eps1_idx]    # n_samp × 14
-
-T_obs <- sum(ch, na.rm = TRUE)
-T_rep <- numeric(n_samp)
-
-for(m in 1:n_samp){
-  
-  z_rep <- matrix(0, nind, nocc)
-  ch_rep <- matrix(0, nind, nocc)
-  
-  for(i in 1:nind){
-    
-    z_rep[i, f[i]] <- 1
-    
-    # ---- state process ----
-    for(t in (f[i] + 1):h[i]){
-      
-      eta <- alpha_samp[m] +
-        beta1_samp[m, ageclass[i, t-1]] +
-        beta3_samp[m] * pmdi.spring.sc[i, t-1] +
-        eps1_samp[m, capyear[i]]
-      
-      phi_it <- plogis(eta)
-      
-      z_rep[i, t] <- rbinom(1, 1, phi_it * z_rep[i, t-1])
-    }
-    
-    # ---- observation process ----
-    for(t in f[i]:h[i]){
-      ch_rep[i, t] <- rbinom(1, 1, p_samp[m] * z_rep[i, t])
-    }
-  }
-  
-  T_rep[m] <- sum(ch_rep)
-}
-
-p_B <- mean(T_rep > T_obs)
-p_B
-
-hist(T_rep, breaks = 30,
-     main = "Posterior Predictive Check: Total Detections",
-     xlab = "Total detections (replicated)",
-     col = "grey")
-abline(v = T_obs, col = "red", lwd = 2)
-
+# 
+# ###############################################################################
+# # 8.  DIAGNOSTIC PLOTS
+# ###############################################################################
+# MCMCtrace(samples,
+#           pdf = FALSE,
+#           ind = TRUE,
+#           Rhat = TRUE,
+#           n.eff = TRUE)
+# 
+# 
+# 
+# ###############################################################################
+# # 9.  Post. Pred. Plots
+# ###############################################################################
+# post <- as.matrix(samples)
+# 
+# n_samp <- nrow(post)
+# nind   <- nrow(ch)
+# nocc   <- ncol(ch)
+# 
+# p_samp     <- post[, "p"]
+# alpha_samp <- post[, "alpha"]
+# beta3_samp <- post[, "beta3"]
+# 
+# beta1_idx <- grep("^beta1\\[", colnames(post))
+# eps1_idx  <- grep("^eps1\\[",  colnames(post))
+# 
+# beta1_samp <- post[, beta1_idx]   # n_samp × 15
+# eps1_samp  <- post[, eps1_idx]    # n_samp × 14
+# 
+# T_obs <- sum(ch, na.rm = TRUE)
+# T_rep <- numeric(n_samp)
+# 
+# for(m in 1:n_samp){
+#   
+#   z_rep <- matrix(0, nind, nocc)
+#   ch_rep <- matrix(0, nind, nocc)
+#   
+#   for(i in 1:nind){
+#     
+#     z_rep[i, f[i]] <- 1
+#     
+#     # ---- state process ----
+#     for(t in (f[i] + 1):h[i]){
+#       
+#       eta <- alpha_samp[m] +
+#         beta1_samp[m, ageclass[i, t-1]] +
+#         beta3_samp[m] * pmdi.spring.sc[i, t-1] +
+#         eps1_samp[m, capyear[i]]
+#       
+#       phi_it <- plogis(eta)
+#       
+#       z_rep[i, t] <- rbinom(1, 1, phi_it * z_rep[i, t-1])
+#     }
+#     
+#     # ---- observation process ----
+#     for(t in f[i]:h[i]){
+#       ch_rep[i, t] <- rbinom(1, 1, p_samp[m] * z_rep[i, t])
+#     }
+#   }
+#   
+#   T_rep[m] <- sum(ch_rep)
+# }
+# 
+# p_B <- mean(T_rep > T_obs)
+# p_B
+# 
+# hist(T_rep, breaks = 30,
+#      main = "Posterior Predictive Check: Total Detections",
+#      xlab = "Total detections (replicated)",
+#      col = "grey")
+# abline(v = T_obs, col = "red", lwd = 2)
+# 
 

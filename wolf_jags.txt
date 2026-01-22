@@ -1,0 +1,77 @@
+
+    model {
+  
+  # prior for recapture p
+  p ~ dbeta(1, 1)
+  
+  # priors
+    alpha ~ dnorm(0, 0.001)
+    
+    beta1[1] <- 0        # age reference
+    eps1[1]  <- 0        # year RE reference
+    
+    beta3 ~ dnorm(0, 0.001)
+  
+  # age-class effects
+    for(u in 2:15){
+      beta1[u] ~ dnorm(0, 0.01)
+    }
+    
+  # year RE
+    for(u in 2:14){
+      eps1[u] ~ dnorm(0, tau)
+    }
+    
+  tau <- 1/(sigma * sigma)
+  sigma ~ dunif(0, 100)
+  
+  
+  # STATE + OBSERVATION PROCESS
+  for(i in 1:nind){
+    
+    # latent state initialized at first capture
+    z[i, f[i]] <- 1
+
+    
+    for(t in (f[i]+1):h[i]){
+      
+      # survival state process
+      z[i,t] ~ dbern(mu1[i,t])
+      mu1[i,t] <- phi[i,t-1] * z[i,t-1]
+      
+      # z_rep[i,t] ~ dbern(mu1_rep[i,t])
+      # mu1_rep[i,t] <- phi[i,t-1] * z_rep[i,t-1]
+      
+      logit(phi[i,t-1]) <- alpha +
+                            beta1[ ageclass[i, t-1] ] +
+                            beta3 * pmdi[i, t-1] +
+                            eps1[ year[i] ]
+      
+      # observation model
+      ch[i,t] ~ dbern(mu2[i,t])
+      mu2[i,t] <- p * z[i,t]
+      ch_new[i,t] ~ dbern(mu2[i,t])
+      
+    } #t
+      indiv_sum[i] <- sum(ch_new[i, (f[i]+1):h[i]])
+      
+  } #i
+        N_rep <- sum(indiv_sum[1:489])
+        Bayesian_p <- step(N_rep - N.obs)
+
+  #for the code below, i assume I need to assign values for N and first, I tried using with the indexing from my i,t above
+  # for(i in 1:N) {
+  #   for(t in first[i]:T) {
+  #     N_obs<- N_obs + ch[i,t] #this produces a running count of number of individuals in that capture history
+  #     N_rep <-N_rep + ch_new[i,t]
+  #   }
+  # }
+  
+  # # derived age-specific phi
+  # for(i in 1:15){
+  #   phi_age[i] <- exp(alpha + beta1[i]) /
+  #     (1 + exp(alpha + beta1[i]))
+  # }
+  # 
+  
+    }

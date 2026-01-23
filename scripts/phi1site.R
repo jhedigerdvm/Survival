@@ -7,7 +7,6 @@ library(MCMCvis)
 library(tidybayes)
 library(mcmcr) 
 library(viridis)
-library(nimble)
 library(here)
 
 data <- read.csv('./cleaned/ch.pmdi.csv', header = T)
@@ -164,18 +163,18 @@ p ~ dbeta(1, 1)
 #priors
   int ~ dnorm(0, 0.001)
   
-  beta1[1] <- 0 #age
-  for ( u in 2:15) {
-    beta1[u] ~ dnorm(0, 0.01)  #age
-  }
-  
-  beta2 ~ dnorm(0,0.001)  #capture year spring pmdi
-  
+  # beta1[1] <- 0 #age
+  # for ( u in 2:15) {
+  #   beta1[u] ~ dnorm(0, 0.01)  #age
+  # }
+  # 
+  # beta2 ~ dnorm(0,0.001)  #capture year spring pmdi
+  # 
   beta3[1] <- 0 # birth site, control
   beta3[2] ~ dnorm(0,0.001) #birthsite, west yana
   
-  beta4[1] <- 0 #interaction between site and year
-  beta4[2] ~ dnorm(0,0.001) 
+  # beta4[1] <- 0 #interaction between site and year
+  # beta4[2] ~ dnorm(0,0.001) 
   
   eps1[1] <- 0 #capture year RE
    for (u in 2:14){  #prior for year effect
@@ -200,10 +199,10 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <-  int + beta1[ageclass[i,t-1]]  #age categorical
-                                      + beta2*pmdi[i, t-1]   #capture year pmdi spring
+            logit(phi[i,t-1]) <-  int #+ beta1[ageclass[i,t-1]]  #age categorical
+                                      #+ beta2*pmdi[i, t-1]   #capture year pmdi spring
                                       + beta3[bs[i]]          #birth site, 2 sites
-                                      + beta4[bs[i]]*year[i]
+                                      
                                       + eps1[year[i]]           #capture year random effect
 
           # Observation process
@@ -220,8 +219,8 @@ for (i in 1:nind){
       for (j in 1:2) { #site beta3
         for (k in 1:14) { #cap year effect eps1
 
-          phi.year[j,k] <- exp( int + beta3[j] + eps1[k]  )/
-                            (1 + exp( int + beta3[j] + eps1[k]))
+          phi.year[j,k] <- exp( int + beta3[j] + eps1[k]   )/
+                            (1 + exp( int + beta3[j] + eps1[k]  ))
 
             }}
 
@@ -258,7 +257,7 @@ inits <- function(){list(
 }
 
 
-parameters <- c('int', 'beta1','beta2', 'beta3', 'beta4', 'eps1', 'phi.year')
+parameters <- c('int', 'beta1','beta2', 'beta3', 'eps1', 'phi.year')
 
 # MCMC settings
 ni <- 10000
@@ -272,9 +271,41 @@ phi.age<- jagsUI(jags.data, inits, parameters, "phi.age.jags", n.chains = nc,
 
 print(phi.age)
 MCMCtrace(phi.age)
-# 
+
 # write.csv(phi.age$summary, './output/phi.year.site.csv')
-# #
+
+#create a tibble of the posterior draws
+gather<- phi.age %>% gather_draws(phi.year[site, year]) #this creates a dataframe in long format with indexing
+gather$site <- as.factor(gather$site)
+gather$year<- as.factor(gather$year)
+
+
+phi.plot<- gather %>%
+  ggplot(aes(x=year, y=.value, color = site, fill = site)) +
+  stat_pointinterval( position = position_dodge(width=0.5))+ #statline ribbon takes posterior estimates and calculates CRI
+  scale_fill_viridis_d(option = 'turbo', alpha = .2, labels = c("EAST YANA", "WEST YANA") ) + #this allowed me to opacify the ribbon but not the line
+  scale_color_viridis_d(option = 'turbo', labels = c("EAST YANA", "WEST YANA"))+ #color of line but no opacification
+  labs(x = "CAPTURE YEAR", y = "ANNUAL SURVIVAL PROBABILITY", title = "")+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = "inside",
+        legend.position.inside = c(0.9,0.1),          # x, y inside the plot area
+        legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+        legend.text = element_text(size = 28),
+        legend.title = element_blank(),
+        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 28),
+        # axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+phi.plot
+# ggsave('./figures/phi.year.site.jpg', phi.plot, width = 10, height = 10)
+
+# 
+#
 # #create a tibble of the posterior draws
 # gather<- phi.age %>% gather_draws(phi.year[site, year]) #this creates a dataframe in long format with indexing
 # gather$site <- as.factor(gather$site)

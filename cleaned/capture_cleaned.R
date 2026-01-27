@@ -8,13 +8,13 @@ data<- read.csv('./raw/master_caphist.csv', header = T)
 
 #rename column names
 names(data)<- c('animal_id', 'birth_year', 'age', 'status', 'cap_year')
-
-# replace status with numbers
-data$status[data$status == 'Captured'] <- 1
-data$status[data$status == 'Nat Mortality'] <- 0 #found dead
-data$status[data$status == 'Alive-Cuddy'] <- 1  #not capture physically but seen on camera
-data$status[data$status == 'Harvested'] <- 2    #accidentally harvested
-data$status[data$status == 'Dead-Capture'] <- 2 #died during capture event
+# 
+# # replace status with numbers
+# data$status[data$status == 'Captured'] <- 1
+# data$status[data$status == 'Nat Mortality'] <- 0 #found dead
+# data$status[data$status == 'Alive-Cuddy'] <- 1  #not capture physically but seen on camera
+# data$status[data$status == 'Harvested'] <- 2    #accidentally harvested
+# data$status[data$status == 'Dead-Capture'] <- 2 #died during capture event
 
 #check for duplicated entries
 data$check<-duplicated(data) #check for duplicates
@@ -42,8 +42,8 @@ for (i in 2035:3608){
 data1$birth_year<-as.numeric(data1$birth_year)
 data2<-data1
 
-#make age whole numbers, 0.5 -> 0, 1.5 -> 1
-data2$age1 <- data1$age - 0.5
+# #make age whole numbers, 0.5 -> 0, 1.5 -> 1
+# data2$age1 <- data1$age - 0.5
 
 #to confirm capture year is correct, add age to birth year and make new col capyear1
 for(i in 1:nrow(data2)){
@@ -54,24 +54,32 @@ for(i in 1:nrow(data2)){
 #check to make sure that cap_year1 and capyear are the same
 check<-data2$cap_year - data2$cap_year1
 any(check>0) #they are
+# 
+# #remove unnecessary columns
+# data3<-data2[,-c(3,8,6)]
+# names(data3)[names(data3) == 'age1'] <- 'age'
+# 
+# #add birth-site to data
+# for (i in 1:nrow(data3)) {
+#   x <- substr(data3$animal_id[i], 1, 1)
+#   if (x == "2") {data3$bs[i] <- "wy"} else 
+#   { data3$bs[i] <- "ey"}
+# }
 
-#remove unnecessary columns
-data3<-data2[,-c(3,8,6)]
-names(data3)[names(data3) == 'age1'] <- 'age'
 
 #add birth-site to data
-for (i in 1:nrow(data3)) {
-  x <- substr(data3$animal_id[i], 1, 1)
-  if (x == "2") {data3$bs[i] <- "wy"} else 
-  { data3$bs[i] <- "ey"}
+for (i in 1:nrow(data2)) {
+  x <- substr(data2$animal_id[i], 1, 1)
+  if (x == "2") {data2$bs[i] <- "wy"} else 
+  { data2$bs[i] <- "ey"}
 }
-##make a new column with discernment of DMP and pasture born
-for (i in 1:nrow(data3)) {
-  x <- substr(data3$animal_id[i], 10, 10)
-  if (x == "1") {data3$bs[i] <- "dmp"}
-}
-
-write.csv(data3,'./cleaned/capture_cleaned.csv', row.names = F)
+# ##make a new column with discernment of DMP and pasture born
+# for (i in 1:nrow(data3)) {
+#   x <- substr(data3$animal_id[i], 10, 10)
+#   if (x == "1") {data3$bs[i] <- "dmp"}
+# }
+write.csv(data2, "./cleaned/fawncaphx.csv", row.names = F)
+# write.csv(data3,'./cleaned/capture_cleaned.csv', row.names = F)
 
 #remove 0.5 year age class from analysis
 data4<- subset(data3, age != 0)
@@ -290,3 +298,36 @@ data1<- data %>%
 data1$pmdi_spring.sc <- scale(data1$pmdi_spring)
 
 write.csv(data1, './cleaned/ch.pmdi.csv', row.names = F)
+
+#add density data to ch.pmdi.csv
+data <- read.csv('./cleaned/ch.pmdi.csv', header = T)
+density <- read.csv('./cleaned/adultdensities.csv', header = T)
+
+density <- density %>% mutate(pasture = recode(pasture, "East Yana" = "ey", "West Yana" = "wy")) #rename birthsites to match data
+density <- density %>% rename("bs" = "pasture") #rename pasture to be bs to match cap data
+
+#merge density data into capture data 
+data1 <- data %>%  
+            left_join(density %>%  select("year", "bs", "densitykm2"), by = c("year", "bs"))
+
+#add wy density data to dmp individuals
+data2 <- data1 %>%
+  group_by(year) %>%
+  mutate(
+    densitykm2 = ifelse(
+      bs == "dmp",
+      densitykm2[bs == "wy"][1],
+      densitykm2
+    )
+  ) %>%
+  ungroup()
+
+#check to make sure densities for wy and dmp match
+dens<- data2 %>%
+  group_by(bs, year) %>%
+  summarise(
+    densitykm2 = first(densitykm2),   # or unique()
+    .groups = "drop"
+  )
+
+write.csv(data2, './cleaned/ch.pmdi.dens.csv', row.names = F)

@@ -9,7 +9,9 @@ library(mcmcr)
 library(viridis)
 library(here)
 
-data <- read.csv('./cleaned/ch.pmdi.csv', header = T)
+# data <- read.csv('./cleaned/ch.pmdi.csv', header = T)
+data <- read.csv('./cleaned/ch.pmdi.dens.csv', header = T)
+
 # data <- data %>% filter(!birth_year < 2011 & !year < 2011) #filter for years where we have all three sites
 data <- data %>%  mutate(bs = recode(bs, ey = "control")) #rename ey to control to serve as a reference class 
 data <- data %>%  mutate(bs = recode(bs, dmp = "wy")) #rename dmp to WY to merge wy and dmp into one bs 
@@ -147,6 +149,14 @@ nvalues <- 100
 pmdi.spring.sc.sim <- seq(from = min(pmdi.spring.sc, na.rm = T), to = max(pmdi.spring.sc, na.rm = T), length.out = nvalues) #obtained to and from values from max and min of annual rainfall in data
 
 unique(bs) # two sites
+
+#add density data
+data$densitykm2.sc <- scale(data$densitykm2)
+density <-pivot_wider(data, names_from = 'year', values_from = 'densitykm2.sc', id_cols = 'animal_id' )
+density <- density[,-1]
+density <- as.matrix(density)
+
+
 
 # ---- Model1: phi ~ site + age + spring pmdi ----
 

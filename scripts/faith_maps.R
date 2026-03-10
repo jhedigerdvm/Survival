@@ -29,7 +29,10 @@ counties <- project(counties, "EPSG:6588")
 usa <- project(usa, "EPSG:6588")
 # 
 
-mapview(feeders)
+mapview(faith_shp)
+faith_shp$PASTURE
+
+
 # ext(faith_shp)
 # extfaith <- ext(1569918.3390678, 1687450.12404436, 1335888.2509673, 13298730.1967523)
 # box_faith <- vect(extfaith, crs="EPSG:6588") #and make this extent a spatVector

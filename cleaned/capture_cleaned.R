@@ -331,3 +331,5 @@ dens<- data2 %>%
   )
 
 write.csv(data2, './cleaned/ch.pmdi.dens.csv', row.names = F)
+
+data1 <- read.csv('./cleaned/ch.pmdi.dens.csv', header = T)

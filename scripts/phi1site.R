@@ -2,6 +2,8 @@
 # ---- Load Packages ----
 #final run of survival analyses
 library(jagsUI)
+library(ggplot2)
+library(ggdist)
 library(tidyverse)
 library(MCMCvis)
 library(tidybayes)
@@ -1290,7 +1292,7 @@ p ~ dbeta(1, 1)
 
 
 #priors
-  # int ~ dnorm(0, 0.001)
+  int ~ dnorm(0, 0.001)
 
   beta1 ~ dnorm(0, 0.001)
   beta2 ~ dnorm(0,0.001)
@@ -1305,8 +1307,8 @@ p ~ dbeta(1, 1)
    #  eps1[u] ~ dnorm(0,tau.year)
    # }
 
-  tau.year <- 1/(sigma.year*sigma.year)
-  sigma.year  ~ dunif(0,100)
+  # tau.year <- 1/(sigma.year*sigma.year)
+  # sigma.year  ~ dunif(0,100)
 
   tau <- 1/(sigma*sigma)
   sigma ~ dunif(0,100)
@@ -1321,7 +1323,7 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <-  beta1*ageclass[i,t-1]   #age categorical
+            logit(phi[i,t-1]) <- int + beta1*ageclass[i,t-1]   #age 
                                   + (beta2*ageclass[i,t-1]*ageclass[i,t-1])
                                      # + eps1[year[i]]           #capture year random effect
 
@@ -1336,9 +1338,9 @@ for (i in 1:nind){
 
    #derived parameters
 
-          for (j in 1:100) { #age
-            phi.age[j] <- exp(  beta1*age.sim[j] + beta2*age.sim[j]*age.sim[j] ) / #+ beta3[i]
-                                     (1 + exp(  beta1*age.sim[j] + beta2*age.sim[j]*age.sim[j] ) )#+ beta3[i]
+          for (j in 1:15) { #age
+            phi.age[j] <- exp( int + beta1*age.sim[j] + beta2*age.sim[j]*age.sim[j] ) / #+ beta3[i]
+                                     (1 + exp( int+ beta1*age.sim[j] + beta2*age.sim[j]*age.sim[j] ) )#+ beta3[i]
 
             }
 
@@ -1379,7 +1381,6 @@ jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmd
 inits <- function(){list(
   int = rnorm(1,0,1),
   z = z.init,
-  morpho = weight.init,
   beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
   beta2=rnorm(1,0,1),
   eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
@@ -1387,7 +1388,7 @@ inits <- function(){list(
 }
 
 
-parameters <- c('int', 'beta1', 'beta2',  'eps1','phi.age', 'age.sim')
+parameters <- c('int', 'beta1', 'beta2',  'eps1','phi.age')
 
 # MCMC settings
 ni <- 5000
@@ -1406,15 +1407,45 @@ MCMCtrace(phi.age)
 # # 
 # 
 # 
-# #create a tibble of the posterior draws
+#create a tibble of the posterior draws
+gather <- phi.age %>%
+  spread_draws(phi.age[age])
+
 # gather<- phi.age %>% gather_draws(phi.age[age]) #this creates a dataframe in long format with indexing
-# # gather$site <- as.factor(gather$site)
-# # gather$year<- as.factor(gather$year)
-# 
-# 
-# phi.plot<- gather %>%
-#   ggplot(aes(x=age, y=.value)) +
-#   stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI
+# gather$ageclass <- as.factor(gather$age)
+
+phi.plot<- gather %>%
+    ggplot(aes(x=age, y=phi.age)) +
+    stat_lineribbon(.width = 0.95)+
+    scale_fill_viridis_d(option = 'turbo', alpha = .2 ) + #this allowed me to opacify the ribbon but not the line
+    scale_color_viridis_d(option = 'turbo')+ #color of line but no opacification
+    labs(x = "Age", y = "Annual Survival Probability", title = "")+
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(),
+          legend.position = "none",
+          legend.position.inside = c(0.9,0.1),          # x, y inside the plot area
+          legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+          legend.text = element_text(size = 28),
+          legend.title = element_blank(),
+          plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+          axis.title = element_text(face = 'bold',size = 18, hjust = 0.5),
+          axis.text = element_text(face='bold',size = 16),
+          # axis.text.x = element_text(angle = 45, hjust = 1),
+          panel.background = element_rect(fill='transparent'), #transparent panel bg
+          plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+  phi.plot
+
+
+# gather$site <- as.factor(gather$site)
+# gather$year<- as.factor(gather$year)
+
+plot(gather$age, gather$.value)
+
+phi.plot<- gather %>%
+  ggplot(aes(x=age, y=.value)) +
+  stat_lineribbon(.width = 0.95)+ #statline ribbon takes posterior estimates and calculates CRI
 #   #   scale_fill_viridis_d(option = 'turbo', alpha = .2, labels = c("CONTROL", "TREATMENT") ) + #this allowed me to opacify the ribbon but not the line
 #   #   scale_color_viridis_d(option = 'turbo', labels = c("CONTROL", "TREATMENT"))+ #color of line but no opacification
 #   #     labs(x = "CAPTURE YEAR", y = "ANNUAL SURVIVAL PROBABILITY", title = "")+
@@ -1456,8 +1487,8 @@ MCMCtrace(phi.age)
 # # 
 # # 
 # # 
-# # #create a tibble of the posterior draws
-# # gather<- phi.age %>% gather_draws(phi.age[age]) #this creates a dataframe in long format with indexing
+#create a tibble of the posterior draws
+gather<- phi.age %>% gather_draws(phi.age[age]) #this creates a dataframe in long format with indexing
 # # gather$age <- as.factor(gather$age)
 # # # gather$year<- as.factor(gather$year)
 # # #
@@ -1481,43 +1512,43 @@ MCMCtrace(phi.age)
 # # 
 # # #plot for average age individual
 # # 
-# # phi.plot<- gather %>%
-# #   ggplot(aes(x=age, y=.value)) +
-# #   stat_pointinterval( position = position_dodge(width=0.5))+ #statline ribbon takes posterior estimates and calculates CRI
-# #   # scale_fill_viridis_d(option = 'turbo', alpha = .2, labels = c("CONTROL", "TREATMENT") ) + #this allowed me to opacify the ribbon but not the line
-# #   # scale_color_viridis_d(option = 'turbo', labels = c("CONTROL", "TREATMENT"))+ #color of line but no opacification
-# #   scale_x_discrete(labels = c(
-# #     "1" = "1.5",
-# #     "2" = "2.5",
-# #     "3" = "3.5",
-# #     "4" = "4.5",
-# #     "5" = "5.5",
-# #     "6" = "6.5",
-# #     "7" = "7.5",
-# #     "8" = "8.5",
-# #     "9" = "9.5",
-# #     "10" = "10.5",
-# #     "11" = "11.5",
-# #     "12" = "12.5"
-# #     
-# #   ))+
-# #   labs(x = "AGE CLASS", y = "ANNUAL SURVIVAL PROBABILITY", title = "")+
-# #   theme_bw() +
-# #   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-# #         panel.border = element_blank(),
-# #         axis.line = element_line(),
-# #         legend.position = "inside",
-# #         legend.position.inside = c(0.9,0.1),          # x, y inside the plot area
-# #         legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
-# #         legend.text = element_text(size = 28),
-# #         legend.title = element_blank(),
-# #         plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
-# #         axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
-# #         axis.text = element_text(face='bold',size = 22),
-# #         # axis.text.x = element_text(angle = 45, hjust = 1),
-# #         panel.background = element_rect(fill='transparent'), #transparent panel bg
-# #         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
-# # phi.plot
+phi.plot<- gather %>%
+  ggplot(aes(x=age, y=.value)) +
+  stat_lineribbon()#+ #statline ribbon takes posterior estimates and calculates CRI
+  # scale_fill_viridis_d(option = 'turbo', alpha = .2, labels = c("CONTROL", "TREATMENT") ) + #this allowed me to opacify the ribbon but not the line
+  # scale_color_viridis_d(option = 'turbo', labels = c("CONTROL", "TREATMENT"))+ #color of line but no opacification
+  # scale_x_discrete(labels = c(
+  #   "1" = "1.5",
+  #   "2" = "2.5",
+  #   "3" = "3.5",
+  #   "4" = "4.5",
+  #   "5" = "5.5",
+  #   "6" = "6.5",
+  #   "7" = "7.5",
+  #   "8" = "8.5",
+  #   "9" = "9.5",
+  #   "10" = "10.5",
+  #   "11" = "11.5",
+  #   "12" = "12.5"
+  # 
+  # ))+
+  labs(x = "AGE CLASS", y = "ANNUAL SURVIVAL PROBABILITY", title = "")+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = "inside",
+        legend.position.inside = c(0.9,0.1),          # x, y inside the plot area
+        legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+        legend.text = element_text(size = 28),
+        legend.title = element_blank(),
+        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+        axis.title = element_text(face = 'bold',size = 28, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 22),
+        # axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+phi.plot
 # # ggsave('./figures/PHI.AGE.JPG', phi.plot, width = 10, height = 10)
 # # 
 # # # 

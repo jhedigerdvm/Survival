@@ -6,9 +6,25 @@ p ~ dbeta(1, 1)
 
 
 #priors
- 
-  lambda ~ dunif(0,5)
-  gamma ~ dnorm(0,0.001)
+  int ~ dnorm(0, 0.001)
+
+  beta1[1] <- 0 #age
+  for ( u in 2:15) {
+    beta1[u] ~ dnorm(0, 0.001)  #age
+  }
+
+
+  eps1[1] <- 0 #capture year RE
+   for (u in 2:14){  #prior for year effect
+    eps1[u] ~ dnorm(0,tau.year)
+  }
+
+
+  tau <- 1/(sigma*sigma)
+  sigma ~ dunif(0,100)
+  
+  tau.year <- 1/(sigma.year*sigma.year)
+  sigma.year ~ dunif(0,100)
 
 
 # Likelihood
@@ -17,14 +33,11 @@ for (i in 1:nind){
       z[i,f[i]] <- 1
 
       for (t in (f[i]+1):h[i]){
-      
-        #Gompertz Hazard
-            hazard[i,t-1] <- lambda * exp(-gamma*ageclass[i, t-1])
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            phi[i,t-1] <-  exp(-hazard[i, t-1])
-            
+            logit(phi[i,t-1]) <-  int + beta1[ageclass[i,t-1]]  #age categorical
+                                      + eps1[year[i]]           #capture year random effect
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -38,23 +51,34 @@ for (i in 1:nind){
    #derived parameters
 
           for (j in 1:15) { #age
-            phi.age[j] <- exp(-(lambda * exp(-gamma*age.sim[j])))
+            phi.age[j] <- exp( int + beta1[j] ) / #+ beta3[i]
+                                     (1 + exp( int + beta1[j]  ) )#+ beta3[i]
 
           }
           
+        
           for (j in 2:15) {
-            phi_diff[j] <- phi.age[j] - phi.age[j-1]
-          
+            phi.1diff[j] <- phi.age[j] - phi.age[j-1]
           }
-          # phi_diff_1 <- phi.age[35]-phi.age[1]
-          # phi_diff_2 <- phi.age[50]-phi.age[40]
-          # phi_diff_3 <- phi.age[75]-phi.age[50]
-          # phi_diff_4 <- phi.age[100]-phi.age[75]
-
           
-          age_decline <- log(lambda) / gamma
+          for (j in 3:15) {
+            phi.2diff[j] <- phi.age[j] - phi.age[j-2]
+          }
+          
+          phi.average <- (phi.age[1] + phi.age[2] + phi.age[3] + phi.age[4] + phi.age[5] + phi.age[6])/6
 
-      
+        # for (i in 1:100){ #density sim
+        #   for (j in 1:2) { #site
+        #     phi.dens[i, j] <- exp( int + beta3[j] + beta4*density.sim[i] + beta5[j]*density.sim[i] ) / #
+        #                              (1 + exp( int + beta3[j] + beta4*density.sim[i] + beta5[j]*density.sim[i] ) ) #
+        #
+        #     }}
+        # for (k in 1:14) { #cap year effect eps1
+        # 
+        #   phi.year[k] <- exp( int + eps1[k]   )/
+        #                     (1 + exp( int + eps1[k] ))
+        # 
+        #     }
 
 }
 

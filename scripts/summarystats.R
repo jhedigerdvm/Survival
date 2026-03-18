@@ -9,8 +9,8 @@ library(mcmcr)
 library(viridis)
 library(here)
 
-# data <- read.csv('./cleaned/ch.pmdi.csv', header = T) #data that does not include fawns, used for surv analysis
-data <- read.csv('./cleaned/fawncaphx.csv', header = T) #dataset that includes fawns
+data <- read.csv('./cleaned/ch.pmdi.csv', header = T) #data that does not include fawns, used for surv analysis
+# data <- read.csv('./cleaned/fawncaphx.csv', header = T) #dataset that includes fawns
 
 #cleanup birthyear for 2022 cohort
 # unique(data$birth_year)
@@ -33,10 +33,6 @@ data <- read.csv('./cleaned/fawncaphx.csv', header = T) #dataset that includes f
 # write.csv(data1, './cleaned/fawncaphx.csv', row.names = F)
 
 unique(data$status)
-
-# pmdistats <- data %>% summarise(mean = mean(pmdi_spring),
-#                                 sd = sd(pmdi_spring))
-
 
 
 # ---- Counts by ageclass and plots----
@@ -368,4 +364,62 @@ data %>% group_by(month)  %>%
 data <- read.csv('./raw/master_caphist.csv', header = T)
 data <- data %>%  filter(Age > 0.5)
 data %>%  group_by(Status) %>%  summarise(count = n())
+
+
+
+
+# ---- PMDI Plots ----
+
+#summary stats for pmdi
+drought <- read.csv('./raw/pmdi.csv', header = T)
+#rename columns and update row 1
+drought <- drought %>%  rename('date' = 'X...Dimmit.County', 'pmdi' = 'Texas.Palmer.Modified.Drought.Index..PMDI.')
+drought <- drought[-1,]
+
+#separate date into month and year
+drought$year <- substr(drought$date, 1, 4)   # first 4 characters
+drought$month  <- substr(drought$date, 5, 6)   # last 2 characters
+drought <- drought[,-1]
+drought <- drought[,c(2,1,3)]
+drought <- drought %>%  mutate(across(c(year, month, pmdi), as.numeric))
+
+spring_pmdi <- drought %>%
+  filter(month %in% 3:5) %>%                     # keep March, April, May for PMDI
+  group_by(year) %>%
+  summarise(pmdi_spring = mean(pmdi, na.rm = TRUE))
+
+pmdi <- spring_pmdi %>% filter(year <= 2022 & year >= 2007 )
+
+pmdi %>% #group_by(year)  %>% 
+  summarise(mean = mean(pmdi_spring),
+            sd = sd(pmdi_spring))
+
+plot_pmdi<- ggplot(pmdi, aes(year, pmdi_spring)) +
+  geom_col(color = 'black', fill = NA) +
+  # geom_line()+
+  scale_x_continuous(breaks = unique(pmdi$year)) + #tick for each year
+  #geom_text(position = position_dodge(width = 0.9), aes(label = totaldeer), vjust = -0.3, size = 4) + #adds count on top of bars
+  labs(x = "YEAR", y = "SPRING PMDI") +
+  # scale_fill_manual(color = "white")+
+  scale_fill_grey(start = 0.4, end = 0.8, name = "pasture") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = "inside",
+        legend.position.inside = c(0.1,0.8),          # x, y inside the plot area
+        legend.justification = c("left", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+        legend.text = element_text(size = 16),
+        legend.title = element_blank(),
+        
+        
+        # plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+        axis.title = element_text(face = 'bold',size = 14, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 14),
+        #axis.text.x = element_text(margin = margin(t = 5)),
+        panel.background = element_rect(fill='transparent'), #transparenhttp://127.0.0.1:46083/graphics/815b1ae8-dcf1-4f7c-921f-7bb4b3b81021.pngt panel bg
+        plot.background = element_rect(fill='transparent', color=NA)
+        # light/dark shades
+  ) #transparent plot bg)
+
+ggsave('./figures/springpmdiplot.jpg', plot_pmdi, width = 10, height = 5)
 

@@ -1296,19 +1296,23 @@ p ~ dbeta(1, 1)
 
   beta1 ~ dnorm(0, 0.001)
   beta2 ~ dnorm(0,0.001)
-  # beta1[1] <- 0 #age
-  # for ( u in 2:15) {
-  #   beta1[u] ~ dnorm(0, 0.01)  #age
-  # }
+  
+  beta3[1] <- 0 #ey
+  beta3[2] ~ dnorm(0, 0.01)  #wy
+  
+  beta4 ~ dnorm( 0 , 0.001) #density
+  
+  beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
+  
 
 
-  #eps1[1] <- 0 #capture year RE
-   # for (u in 1:14){  #prior for year effect
-   #  eps1[u] ~ dnorm(0,tau.year)
-   # }
+  eps1[1] <- 0 #capture year RE
+  for (u in 2:14){  #prior for year effect
+   eps1[u] ~ dnorm(0,tau.year)
+  }
 
-  # tau.year <- 1/(sigma.year*sigma.year)
-  # sigma.year  ~ dunif(0,100)
+  tau.year <- 1/(sigma.year*sigma.year)
+  sigma.year  ~ dunif(0,100)
 
   tau <- 1/(sigma*sigma)
   sigma ~ dunif(0,100)
@@ -1323,9 +1327,12 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + beta1*ageclass[i,t-1]   #age 
-                                  + (beta2*ageclass[i,t-1]*ageclass[i,t-1])
-                                     # + eps1[year[i]]           #capture year random effect
+            logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
+                                  + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
+                                  + beta3[ bs[ i ]] #birthsite
+                                  + beta4*density[ i , t-1 ]
+                                  + beta5*pmdi[ i , t-1 ]
+                                  + eps1[year[ i ]]           #capture year random effect
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -1337,12 +1344,24 @@ for (i in 1:nind){
    } #i
 
    #derived parameters
-
+        for ( i in 1:2){
           for (j in 1:15) { #age
-            phi.age[j] <- exp( int + beta1*age.sim[j] + beta2*age.sim[j]*age.sim[j] ) / #+ beta3[i]
-                                     (1 + exp( int+ beta1*age.sim[j] + beta2*age.sim[j]*age.sim[j] ) )#+ beta3[i]
+            phi.age[i,j] <- exp( int + beta1*age.sim[j] 
+                                      + beta2*age.sim[j]*age.sim[j] 
+                                      + beta3[i]) / 
+                               (1 + exp( int+ beta1*age.sim[j] 
+                                              + beta2*age.sim[j]*age.sim[j] 
+                                              + beta3[i] ) )
 
-            }
+          }}
+            
+        for (j in 2:15) {
+            phi.1diff[1,j] <- phi.age[1, j] - phi.age[1, j-1]
+          }
+          
+          # for (j in 3:15) {
+          #   phi.2diff[j] <- phi.age[j] - phi.age[j-2]
+          # }
 
         # for (i in 1:100){ #density sim
         #   for (j in 1:2) { #site
@@ -1383,12 +1402,15 @@ inits <- function(){list(
   z = z.init,
   beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
   beta2=rnorm(1,0,1),
+  beta3 = c(NA, rnorm(1,0,1)),#birth site
+  beta4 = rnorm(1,0,1), #density
+  beta5 = rnorm(1,0,1), # spring pmdi
   eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
 )
 }
 
 
-parameters <- c('int', 'beta1', 'beta2',  'eps1','phi.age')
+parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1','phi.age', 'phi.1diff')
 
 # MCMC settings
 ni <- 5000
@@ -1409,13 +1431,12 @@ MCMCtrace(phi.age)
 # 
 #create a tibble of the posterior draws
 gather <- phi.age %>%
-  spread_draws(phi.age[age])
+  spread_draws(phi.age[site,age])
 
-# gather<- phi.age %>% gather_draws(phi.age[age]) #this creates a dataframe in long format with indexing
-# gather$ageclass <- as.factor(gather$age)
+gather$site <- as.factor(gather$site)
 
 phi.plot<- gather %>%
-    ggplot(aes(x=age, y=phi.age)) +
+    ggplot(aes(x=age, y=phi.age, color = site)) +
     stat_lineribbon(.width = 0.95)+
     scale_fill_viridis_d(option = 'turbo', alpha = .2 ) + #this allowed me to opacify the ribbon but not the line
     scale_color_viridis_d(option = 'turbo')+ #color of line but no opacification

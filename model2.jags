@@ -16,7 +16,7 @@ p ~ dbeta(1, 1)
   
   beta4 ~ dnorm( 0 , 0.001) #density
   
-  beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
+  #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
   
 
 
@@ -45,7 +45,7 @@ for (i in 1:nind){
                                   + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
                                   + beta3[ bs[ i ]] #birthsite
                                   + beta4*density[ i , t-1 ]
-                                  + beta5*pmdi[ i , t-1 ]
+                                  #+ beta5*pmdi[ i , t-1 ]
                                   + eps1[year[ i ]]           #capture year random effect
 
           # Observation process
@@ -58,37 +58,6 @@ for (i in 1:nind){
    } #i
 
    #derived parameters
-        for ( i in 1:2){
-          for (j in 1:15) { #age
-            phi.age[i,j] <- exp( int + beta1*age.sim[j] 
-                                      + beta2*age.sim[j]*age.sim[j] 
-                                      + beta3[i]) / 
-                               (1 + exp( int+ beta1*age.sim[j] 
-                                              + beta2*age.sim[j]*age.sim[j] 
-                                              + beta3[i] ) )
-
-          }}
-            
-        for (j in 2:15) {
-            phi.1diff[1,j] <- phi.age[1, j] - phi.age[1, j-1]
-          }
-          
-          # for (j in 3:15) {
-          #   phi.2diff[j] <- phi.age[j] - phi.age[j-2]
-          # }
-
-        # for (i in 1:100){ #density sim
-        #   for (j in 1:2) { #site
-        #     phi.dens[i, j] <- exp( int + beta3[j] + beta4*density.sim[i] + beta5[j]*density.sim[i] ) / #
-        #                              (1 + exp( int + beta3[j] + beta4*density.sim[i] + beta5[j]*density.sim[i] ) ) #
-        #
-        #     }}
-        # for (k in 1:14) { #cap year effect eps1
-        #
-        #   phi.year[k] <- exp( int + eps1[k]   )/
-        #                     (1 + exp( int + eps1[k] ))
-        #
-        #     }
-
+       
 }
 

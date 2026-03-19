@@ -894,3 +894,4 @@ model_mat <- do.call(rbind, model_list)
 colnames(model_mat) <- c("pD", "DIC")
 
 models<- as.data.frame(model_mat)
+write.csv(models, "./output/modelselection.csv")

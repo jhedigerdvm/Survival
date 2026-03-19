@@ -1,0 +1,7 @@
+,pD,DIC
+phi ~ int+ age + age2 + site + density + pmdi + (1|year,498.3360901,1334.132073
+phi ~ int+ age + age2 + site + density + (1|year),457.9009654,1293.186682
+phi ~ int+ age + age2 + site  + (1|year),449.2725709,1283.519102
+phi ~ int+ age + age2  + (1|year),461.5387871,1294.964998
+phi ~ int+  (1|year),594.6994006,1460.068111
+phi ~ int+ age + age2  + density + (1|year),475.1940595,1308.684811

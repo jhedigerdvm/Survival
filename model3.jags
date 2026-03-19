@@ -11,8 +11,8 @@ p ~ dbeta(1, 1)
   beta1 ~ dnorm(0, 0.001)
   beta2 ~ dnorm(0,0.001)
   
-  # beta3[1] <- 0 #ey
-  # beta3[2] ~ dnorm(0, 0.01)  #wy
+  beta3[1] <- 0 #ey
+  beta3[2] ~ dnorm(0, 0.01)  #wy
   
   #beta4 ~ dnorm( 0 , 0.001) #density
   
@@ -43,7 +43,7 @@ for (i in 1:nind){
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
             logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
                                   + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
-                                  #+ beta3[ bs[ i ]] #birthsite
+                                  + beta3[ bs[ i ]] #birthsite
                                   #+ beta4*density[ i , t-1 ]
                                   #+ beta5*pmdi[ i , t-1 ]
                                   + eps1[year[ i ]]           #capture year random effect
@@ -58,6 +58,23 @@ for (i in 1:nind){
    } #i
 
    #derived parameters
+      for ( i in 1:2){ #site
+          for (j in 1:100) { #simulated age
+            phi.age[i,j] <- exp( int + beta1*age.sim[j] 
+                                      + beta2*age.sim[j]*age.sim[j] 
+                                      + beta3[i]) / 
+                               (1 + exp( int+ beta1*age.sim[j] 
+                                              + beta2*age.sim[j]*age.sim[j] 
+                                              + beta3[i] ) )
+
+          }}
+            
+        # for (j in 2:15) { #difference between 2 and 1 and 3 and 2, etc
+        #     phi.diff[1,j] <- phi.age[1, j] - phi.age[1, j-1]
+        #   }
+          
+          
+
        
 }
 

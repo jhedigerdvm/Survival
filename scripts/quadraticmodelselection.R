@@ -167,12 +167,724 @@ age.sim <- seq(from = min(age.sc, na.rm = T), to = max(age.sc, na.rm = T), lengt
 
 
 
-#---- Model1: full model ----
+# #---- Model1: full model ----
+# 
+# 
+# # Specify model in JAGS language
+# set.seed(100)
+# sink("model1.jags")
+# cat("
+# model {
+# 
+# #prior for recapture prob
+# p ~ dbeta(1, 1)
+# 
+# 
+# #priors
+#   int ~ dnorm(0, 0.001)
+# 
+#   beta1 ~ dnorm(0, 0.001)
+#   beta2 ~ dnorm(0,0.001)
+#   
+#   beta3[1] <- 0 #ey
+#   beta3[2] ~ dnorm(0, 0.01)  #wy
+#   
+#   beta4 ~ dnorm( 0 , 0.001) #density
+#   
+#   beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
+#   
+# 
+# 
+#   eps1[1] <- 0 #capture year RE
+#   for (u in 2:14){  #prior for year effect
+#    eps1[u] ~ dnorm(0,tau.year)
+#   }
+# 
+#   tau.year <- 1/(sigma.year*sigma.year)
+#   sigma.year  ~ dunif(0,100)
+# 
+#   tau <- 1/(sigma*sigma)
+#   sigma ~ dunif(0,100)
+# 
+# 
+# # Likelihood
+# for (i in 1:nind){
+#    # Define latent state at first capture, we know for sure the animal is alive
+#       z[i,f[i]] <- 1
+# 
+#       for (t in (f[i]+1):h[i]){
+#         # State process
+#             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+#             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+#             logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
+#                                   + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
+#                                   + beta3[ bs[ i ]] #birthsite
+#                                   + beta4*density[ i , t-1 ]
+#                                   + beta5*pmdi[ i , t-1 ]
+#                                   + eps1[year[ i ]]           #capture year random effect
+# 
+#           # Observation process
+#             ch[i,t] ~ dbern(mu2[i,t])
+#             mu2[i,t] <- p * z[i,t]
+# 
+# 
+# 
+#       } #t
+#    } #i
+# 
+#    #derived parameters
+#        
+# }
+# ",fill = TRUE)
+# sink()
+# 
+# 
+# #Function for latent state
+# z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+# 
+# for(i in 1:dim(z.init)[1]){
+#   z.init[i, f[i]:h[i]] <- 1
+#   z.init[i,f[i]] <- NA
+# }
+# 
+# 
+# # Bundle data
+# jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
+#                   bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
+#                   NA_indices = NA_indices_weight, occasions = occasions_weight,
+#                   morpho = weight, year = capyear, density = density, density.sim = density.sim)
+# 
+# # Initial values
+# inits <- function(){list(
+#   int = rnorm(1,0,1),
+#   z = z.init,
+#   beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
+#   beta2=rnorm(1,0,1),
+#   beta3 = c(NA, rnorm(1,0,1)),#birth site
+#   beta4 = rnorm(1,0,1), #density
+#   beta5 = rnorm(1,0,1), # spring pmdi
+#   eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
+# )
+# }
+# 
+# 
+# parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1')
+# 
+# # MCMC settings
+# ni <- 5000
+# nt <- 10
+# nb <- 1000
+# nc <- 3
+# 
+# # Call JAGS from R (BRT 3 min)
+# model1<- jagsUI(jags.data, inits, parameters, "model1.jags", n.chains = nc,
+#                  n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+# print(model1)
+# 
+# 
+# #---- Model2: phi ~ int+ age + age2 + site + density ----
+# 
+# 
+# # Specify model in JAGS language
+# set.seed(100)
+# sink("model2.jags")
+# cat("
+# model {
+# 
+# #prior for recapture prob
+# p ~ dbeta(1, 1)
+# 
+# 
+# #priors
+#   int ~ dnorm(0, 0.001)
+# 
+#   beta1 ~ dnorm(0, 0.001)
+#   beta2 ~ dnorm(0,0.001)
+#   
+#   beta3[1] <- 0 #ey
+#   beta3[2] ~ dnorm(0, 0.01)  #wy
+#   
+#   beta4 ~ dnorm( 0 , 0.001) #density
+#   
+#   #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
+#   
+# 
+# 
+#   eps1[1] <- 0 #capture year RE
+#   for (u in 2:14){  #prior for year effect
+#    eps1[u] ~ dnorm(0,tau.year)
+#   }
+# 
+#   tau.year <- 1/(sigma.year*sigma.year)
+#   sigma.year  ~ dunif(0,100)
+# 
+#   tau <- 1/(sigma*sigma)
+#   sigma ~ dunif(0,100)
+# 
+# 
+# # Likelihood
+# for (i in 1:nind){
+#    # Define latent state at first capture, we know for sure the animal is alive
+#       z[i,f[i]] <- 1
+# 
+#       for (t in (f[i]+1):h[i]){
+#         # State process
+#             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+#             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+#             logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
+#                                   + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
+#                                   + beta3[ bs[ i ]] #birthsite
+#                                   + beta4*density[ i , t-1 ]
+#                                   #+ beta5*pmdi[ i , t-1 ]
+#                                   + eps1[year[ i ]]           #capture year random effect
+# 
+#           # Observation process
+#             ch[i,t] ~ dbern(mu2[i,t])
+#             mu2[i,t] <- p * z[i,t]
+# 
+# 
+# 
+#       } #t
+#    } #i
+# 
+#    #derived parameters
+#        
+# }
+# ",fill = TRUE)
+# sink()
+# 
+# 
+# #Function for latent state
+# z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+# 
+# for(i in 1:dim(z.init)[1]){
+#   z.init[i, f[i]:h[i]] <- 1
+#   z.init[i,f[i]] <- NA
+# }
+# 
+# 
+# # Bundle data
+# jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
+#                   bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
+#                   NA_indices = NA_indices_weight, occasions = occasions_weight,
+#                   morpho = weight, year = capyear, density = density, density.sim = density.sim)
+# 
+# # Initial values
+# inits <- function(){list(
+#   int = rnorm(1,0,1),
+#   z = z.init,
+#   beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
+#   beta2=rnorm(1,0,1),
+#   beta3 = c(NA, rnorm(1,0,1)),#birth site
+#   beta4 = rnorm(1,0,1), #density
+#   #beta5 = rnorm(1,0,1), # spring pmdi
+#   eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
+# )
+# }
+# 
+# 
+# parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1')
+# 
+# # MCMC settings
+# ni <- 5000
+# nt <- 10
+# nb <- 1000
+# nc <- 3
+# 
+# # Call JAGS from R (BRT 3 min)
+# model2<- jagsUI(jags.data, inits, parameters, "model2.jags", n.chains = nc,
+#                 n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+# 
+# print(model2)
+# 
+# 
+# #---- Model3: phi ~ int+ age + age2 + site  ----
+# 
+# 
+# # Specify model in JAGS language
+# set.seed(100)
+# sink("model3.jags")
+# cat("
+# model {
+# 
+# #prior for recapture prob
+# p ~ dbeta(1, 1)
+# 
+# 
+# #priors
+#   int ~ dnorm(0, 0.001)
+# 
+#   beta1 ~ dnorm(0, 0.001)
+#   beta2 ~ dnorm(0,0.001)
+#   
+#   beta3[1] <- 0 #ey
+#   beta3[2] ~ dnorm(0, 0.01)  #wy
+#   
+#   #beta4 ~ dnorm( 0 , 0.001) #density
+#   
+#   #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
+#   
+# 
+# 
+#   eps1[1] <- 0 #capture year RE
+#   for (u in 2:14){  #prior for year effect
+#    eps1[u] ~ dnorm(0,tau.year)
+#   }
+# 
+#   tau.year <- 1/(sigma.year*sigma.year)
+#   sigma.year  ~ dunif(0,100)
+# 
+#   tau <- 1/(sigma*sigma)
+#   sigma ~ dunif(0,100)
+# 
+# 
+# # Likelihood
+# for (i in 1:nind){
+#    # Define latent state at first capture, we know for sure the animal is alive
+#       z[i,f[i]] <- 1
+# 
+#       for (t in (f[i]+1):h[i]){
+#         # State process
+#             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+#             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+#             logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
+#                                   + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
+#                                   + beta3[ bs[ i ]] #birthsite
+#                                   #+ beta4*density[ i , t-1 ]
+#                                   #+ beta5*pmdi[ i , t-1 ]
+#                                   + eps1[year[ i ]]           #capture year random effect
+# 
+#           # Observation process
+#             ch[i,t] ~ dbern(mu2[i,t])
+#             mu2[i,t] <- p * z[i,t]
+# 
+# 
+# 
+#       } #t
+#    } #i
+# 
+#    #derived parameters
+#        
+# }
+# ",fill = TRUE)
+# sink()
+# 
+# 
+# #Function for latent state
+# z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+# 
+# for(i in 1:dim(z.init)[1]){
+#   z.init[i, f[i]:h[i]] <- 1
+#   z.init[i,f[i]] <- NA
+# }
+# 
+# 
+# # Bundle data
+# jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
+#                   bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
+#                   NA_indices = NA_indices_weight, occasions = occasions_weight,
+#                   morpho = weight, year = capyear, density = density, density.sim = density.sim)
+# 
+# # Initial values
+# inits <- function(){list(
+#   int = rnorm(1,0,1),
+#   z = z.init,
+#   beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
+#   beta2=rnorm(1,0,1),
+#   beta3 = c(NA, rnorm(1,0,1)),#birth site
+#   beta4 = rnorm(1,0,1), #density
+#   #beta5 = rnorm(1,0,1), # spring pmdi
+#   eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
+# )
+# }
+# 
+# 
+# parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1')
+# 
+# # MCMC settings
+# ni <- 5000
+# nt <- 10
+# nb <- 1000
+# nc <- 3
+# 
+# # Call JAGS from R (BRT 3 min)
+# model3<- jagsUI(jags.data, inits, parameters, "model3.jags", n.chains = nc,
+#                 n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+# 
+# print(model3)
+# 
+# #---- Model4: int + age + age2 ----
+# 
+# # Specify model in JAGS language
+# set.seed(100)
+# sink("model4.jags")
+# cat("
+# model {
+# 
+# #prior for recapture prob
+# p ~ dbeta(1, 1)
+# 
+# 
+# #priors
+#   int ~ dnorm(0, 0.001)
+# 
+#   beta1 ~ dnorm(0, 0.001)
+#   beta2 ~ dnorm(0,0.001)
+#   
+#   # beta3[1] <- 0 #ey
+#   # beta3[2] ~ dnorm(0, 0.01)  #wy
+#   
+#   #beta4 ~ dnorm( 0 , 0.001) #density
+#   
+#   #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
+#   
+# 
+# 
+#   eps1[1] <- 0 #capture year RE
+#   for (u in 2:14){  #prior for year effect
+#    eps1[u] ~ dnorm(0,tau.year)
+#   }
+# 
+#   tau.year <- 1/(sigma.year*sigma.year)
+#   sigma.year  ~ dunif(0,100)
+# 
+#   tau <- 1/(sigma*sigma)
+#   sigma ~ dunif(0,100)
+# 
+# 
+# # Likelihood
+# for (i in 1:nind){
+#    # Define latent state at first capture, we know for sure the animal is alive
+#       z[i,f[i]] <- 1
+# 
+#       for (t in (f[i]+1):h[i]){
+#         # State process
+#             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+#             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+#             logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
+#                                   + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
+#                                   #+ beta3[ bs[ i ]] #birthsite
+#                                   #+ beta4*density[ i , t-1 ]
+#                                   #+ beta5*pmdi[ i , t-1 ]
+#                                   + eps1[year[ i ]]           #capture year random effect
+# 
+#           # Observation process
+#             ch[i,t] ~ dbern(mu2[i,t])
+#             mu2[i,t] <- p * z[i,t]
+# 
+# 
+# 
+#       } #t
+#    } #i
+# 
+#    #derived parameters
+#        
+# }
+# ",fill = TRUE)
+# sink()
+# 
+# 
+# #Function for latent state
+# z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+# 
+# for(i in 1:dim(z.init)[1]){
+#   z.init[i, f[i]:h[i]] <- 1
+#   z.init[i,f[i]] <- NA
+# }
+# 
+# 
+# # Bundle data
+# jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
+#                   bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
+#                   NA_indices = NA_indices_weight, occasions = occasions_weight,
+#                   morpho = weight, year = capyear, density = density, density.sim = density.sim)
+# 
+# # Initial values
+# inits <- function(){list(
+#   int = rnorm(1,0,1),
+#   z = z.init,
+#   beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
+#   beta2=rnorm(1,0,1),
+#   # beta3 = c(NA, rnorm(1,0,1)),#birth site
+#   # beta4 = rnorm(1,0,1), #density
+#   #beta5 = rnorm(1,0,1), # spring pmdi
+#   eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
+# )
+# }
+# 
+# 
+# parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1')
+# 
+# # MCMC settings
+# ni <- 5000
+# nt <- 10
+# nb <- 1000
+# nc <- 3
+# 
+# # Call JAGS from R (BRT 3 min)
+# model4<- jagsUI(jags.data, inits, parameters, "model4.jags", n.chains = nc,
+#                 n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+# 
+# print(model4)
+# 
+# #---- Model5: phi ~ int   ----
+# 
+# 
+# # Specify model in JAGS language
+# set.seed(100)
+# sink("model5.jags")
+# cat("
+# model {
+# 
+# #prior for recapture prob
+# p ~ dbeta(1, 1)
+# 
+# 
+# #priors
+#   int ~ dnorm(0, 0.001)
+# 
+#   # beta1 ~ dnorm(0, 0.001)
+#   # beta2 ~ dnorm(0,0.001)
+#   
+#   # beta3[1] <- 0 #ey
+#   # beta3[2] ~ dnorm(0, 0.01)  #wy
+#   
+#   #beta4 ~ dnorm( 0 , 0.001) #density
+#   
+#   #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
+#   
+# 
+# 
+#   eps1[1] <- 0 #capture year RE
+#   for (u in 2:14){  #prior for year effect
+#    eps1[u] ~ dnorm(0,tau.year)
+#   }
+# 
+#   tau.year <- 1/(sigma.year*sigma.year)
+#   sigma.year  ~ dunif(0,100)
+# 
+#   tau <- 1/(sigma*sigma)
+#   sigma ~ dunif(0,100)
+# 
+# 
+# # Likelihood
+# for (i in 1:nind){
+#    # Define latent state at first capture, we know for sure the animal is alive
+#       z[i,f[i]] <- 1
+# 
+#       for (t in (f[i]+1):h[i]){
+#         # State process
+#             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+#             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+#             logit(phi[i,t-1]) <- int #+ beta1*ageclass[ i , t-1 ]   #age 
+#                                   #+ (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
+#                                   #+ beta3[ bs[ i ]] #birthsite
+#                                   #+ beta4*density[ i , t-1 ]
+#                                   #+ beta5*pmdi[ i , t-1 ]
+#                                   + eps1[year[ i ]]           #capture year random effect
+# 
+#           # Observation process
+#             ch[i,t] ~ dbern(mu2[i,t])
+#             mu2[i,t] <- p * z[i,t]
+# 
+#           # Log-likelihood for WAIC      
+#             loglik[i,t] <- logdensity.bern(ch[i,t], mu2[i,t])
+# 
+# 
+#       } #t
+#    } #i
+# 
+#    #derived parameters
+#        
+# }
+# ",fill = TRUE)
+# sink()
+# 
+# 
+# #Function for latent state
+# z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+# 
+# for(i in 1:dim(z.init)[1]){
+#   z.init[i, f[i]:h[i]] <- 1
+#   z.init[i,f[i]] <- NA
+# }
+# 
+# 
+# # Bundle data
+# jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
+#                   bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
+#                   NA_indices = NA_indices_weight, occasions = occasions_weight,
+#                   morpho = weight, year = capyear, density = density, density.sim = density.sim)
+# 
+# # Initial values
+# inits <- function(){list(
+#   int = rnorm(1,0,1),
+#   z = z.init,
+#   # beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
+#   # beta2=rnorm(1,0,1),
+#   # beta3 = c(NA, rnorm(1,0,1)),#birth site
+#   # beta4 = rnorm(1,0,1), #density
+#   #beta5 = rnorm(1,0,1), # spring pmdi
+#   eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
+# )
+# }
+# 
+# 
+# parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1', 'loglik')
+# 
+# # MCMC settings
+# ni <- 5000
+# nt <- 10
+# nb <- 1000
+# nc <- 3
+# 
+# # Call JAGS from R (BRT 3 min)
+# model5<- jagsUI(jags.data, inits, parameters, "model5.jags", n.chains = nc,
+#                 n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+# 
+# print(model5)
+# 
+# # loglik_array <- model5$sims.list$loglik
+# # 
+# # library(loo)
+# # 
+# # # flatten i,t into columns
+# # loglik_mat <- apply(loglik_array, 1, c)
+# # loglik_mat <- t(loglik_mat)
+# # 
+# # # remove columns with NA (unobserved entries)
+# # loglik_mat <- loglik_mat[, colSums(is.na(loglik_mat)) == 0]
+# # loglik_mat <- loglik_mat[, apply(loglik_mat, 2, var) > 0]
+# # loo_result <- loo(loglik_mat)
+# # 
+# # print(loo_result)
+# # 
+# # print(loo_result)
+# # loo_result$diagnostics$pareto_k
+# # loo_result <- loo(loglik_mat, moment_match = TRUE)
+# 
+# #---- Model6: phi ~ int+ age + age2 + density  ----
+# 
+# 
+# # Specify model in JAGS language
+# set.seed(100)
+# sink("model6.jags")
+# cat("
+# model {
+# 
+# #prior for recapture prob
+# p ~ dbeta(1, 1)
+# 
+# 
+# #priors
+#   int ~ dnorm(0, 0.001)
+# 
+#   beta1 ~ dnorm(0, 0.001)
+#   beta2 ~ dnorm(0,0.001)
+#   
+#   # beta3[1] <- 0 #ey
+#   # beta3[2] ~ dnorm(0, 0.01)  #wy
+#   
+#   beta4 ~ dnorm( 0 , 0.001) #density
+#   
+#   #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
+#   
+# 
+# 
+#   eps1[1] <- 0 #capture year RE
+#   for (u in 2:14){  #prior for year effect
+#    eps1[u] ~ dnorm(0,tau.year)
+#   }
+# 
+#   tau.year <- 1/(sigma.year*sigma.year)
+#   sigma.year  ~ dunif(0,100)
+# 
+#   tau <- 1/(sigma*sigma)
+#   sigma ~ dunif(0,100)
+# 
+# 
+# # Likelihood
+# for (i in 1:nind){
+#    # Define latent state at first capture, we know for sure the animal is alive
+#       z[i,f[i]] <- 1
+# 
+#       for (t in (f[i]+1):h[i]){
+#         # State process
+#             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+#             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+#             logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
+#                                   + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
+#                                   #+ beta3[ bs[ i ]] #birthsite
+#                                   + beta4*density[ i , t-1 ]
+#                                   #+ beta5*pmdi[ i , t-1 ]
+#                                   + eps1[year[ i ]]           #capture year random effect
+# 
+#           # Observation process
+#             ch[i,t] ~ dbern(mu2[i,t])
+#             mu2[i,t] <- p * z[i,t]
+# 
+# 
+# 
+#       } #t
+#    } #i
+# 
+#    #derived parameters
+#        
+# }
+# ",fill = TRUE)
+# sink()
+# 
+# 
+# #Function for latent state
+# z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+# 
+# for(i in 1:dim(z.init)[1]){
+#   z.init[i, f[i]:h[i]] <- 1
+#   z.init[i,f[i]] <- NA
+# }
+# 
+# 
+# # Bundle data
+# jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
+#                   bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
+#                   NA_indices = NA_indices_weight, occasions = occasions_weight,
+#                   morpho = weight, year = capyear, density = density, density.sim = density.sim)
+# 
+# # Initial values
+# inits <- function(){list(
+#   int = rnorm(1,0,1),
+#   z = z.init,
+#   beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
+#   beta2=rnorm(1,0,1),
+#   beta3 = c(NA, rnorm(1,0,1)),#birth site
+#   beta4 = rnorm(1,0,1), #density
+#   #beta5 = rnorm(1,0,1), # spring pmdi
+#   eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
+# )
+# }
+# 
+# 
+# parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1')
+# 
+# # MCMC settings
+# ni <- 5000
+# nt <- 10
+# nb <- 1000
+# nc <- 3
+# 
+# # Call JAGS from R (BRT 3 min)
+# model6<- jagsUI(jags.data, inits, parameters, "model6.jags", n.chains = nc,
+#                 n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+# 
+# print(model6)
+
+
+#---- Model7: phi ~ int+ age + age2 + site + age*site  ----
 
 
 # Specify model in JAGS language
 set.seed(100)
-sink("model1.jags")
+sink("model7.jags")
 cat("
 model {
 
@@ -189,10 +901,11 @@ p ~ dbeta(1, 1)
   beta3[1] <- 0 #ey
   beta3[2] ~ dnorm(0, 0.01)  #wy
   
-  beta4 ~ dnorm( 0 , 0.001) #density
-  
-  beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
-  
+  beta4[1] <- 0  # age × site
+  beta4[2] ~ dnorm(0, 0.01)
+
+  beta5[1] <- 0  # age^2 × site
+  beta5[2] ~ dnorm(0, 0.01)
 
 
   eps1[1] <- 0 #capture year RE
@@ -219,8 +932,8 @@ for (i in 1:nind){
             logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
                                   + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
                                   + beta3[ bs[ i ]] #birthsite
-                                  + beta4*density[ i , t-1 ]
-                                  + beta5*pmdi[ i , t-1 ]
+                                  + beta4[bs[i]] * ageclass[i,t-1]
+                                  + (beta5[bs[i]] * ageclass[i,t-1] * ageclass[i,t-1])
                                   + eps1[year[ i ]]           #capture year random effect
 
           # Observation process
@@ -233,7 +946,20 @@ for (i in 1:nind){
    } #i
 
    #derived parameters
-       
+        # for ( i in 1:2){ #site
+        #   for (j in 1:15) { #simulated age
+        #     phi.age[i,j] <- exp( int + beta1*age.sim[j] 
+        #                               + beta2*age.sim[j]*age.sim[j] 
+        #                               + beta3[i]
+        #                               + beta4[i]*age.sim[j]
+        #                               + beta5[i]*age.sim[j]*age.sim[j]) / 
+        #                        (1 + exp( int+ beta1*age.sim[j] 
+        #                                       + beta2*age.sim[j]*age.sim[j] 
+        #                                       + beta3[i]
+        #                                       + beta4[i]*age.sim[j]
+        #                                       + beta5[i]*age.sim[j]*age.sim[j]) )
+        # 
+        #   }}
 }
 ",fill = TRUE)
 sink()
@@ -261,14 +987,14 @@ inits <- function(){list(
   beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
   beta2=rnorm(1,0,1),
   beta3 = c(NA, rnorm(1,0,1)),#birth site
-  beta4 = rnorm(1,0,1), #density
-  beta5 = rnorm(1,0,1), # spring pmdi
+  beta4 = c(NA,rnorm(1,0,1)), #age x site
+  beta5 = c(NA, rnorm(1,0,1)), # age2 x site
   eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
 )
 }
 
 
-parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1')
+parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5','phi.age',  'eps1')
 
 # MCMC settings
 ni <- 5000
@@ -277,607 +1003,13 @@ nb <- 1000
 nc <- 3
 
 # Call JAGS from R (BRT 3 min)
-model1<- jagsUI(jags.data, inits, parameters, "model1.jags", n.chains = nc,
-                 n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
-print(model1)
-
-
-#---- Model2: phi ~ int+ age + age2 + site + density ----
-
-
-# Specify model in JAGS language
-set.seed(100)
-sink("model2.jags")
-cat("
-model {
-
-#prior for recapture prob
-p ~ dbeta(1, 1)
-
-
-#priors
-  int ~ dnorm(0, 0.001)
-
-  beta1 ~ dnorm(0, 0.001)
-  beta2 ~ dnorm(0,0.001)
-  
-  beta3[1] <- 0 #ey
-  beta3[2] ~ dnorm(0, 0.01)  #wy
-  
-  beta4 ~ dnorm( 0 , 0.001) #density
-  
-  #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
-  
-
-
-  eps1[1] <- 0 #capture year RE
-  for (u in 2:14){  #prior for year effect
-   eps1[u] ~ dnorm(0,tau.year)
-  }
-
-  tau.year <- 1/(sigma.year*sigma.year)
-  sigma.year  ~ dunif(0,100)
-
-  tau <- 1/(sigma*sigma)
-  sigma ~ dunif(0,100)
-
-
-# Likelihood
-for (i in 1:nind){
-   # Define latent state at first capture, we know for sure the animal is alive
-      z[i,f[i]] <- 1
-
-      for (t in (f[i]+1):h[i]){
-        # State process
-            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
-                                  + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
-                                  + beta3[ bs[ i ]] #birthsite
-                                  + beta4*density[ i , t-1 ]
-                                  #+ beta5*pmdi[ i , t-1 ]
-                                  + eps1[year[ i ]]           #capture year random effect
-
-          # Observation process
-            ch[i,t] ~ dbern(mu2[i,t])
-            mu2[i,t] <- p * z[i,t]
-
-
-
-      } #t
-   } #i
-
-   #derived parameters
-       
-}
-",fill = TRUE)
-sink()
-
-
-#Function for latent state
-z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
-
-for(i in 1:dim(z.init)[1]){
-  z.init[i, f[i]:h[i]] <- 1
-  z.init[i,f[i]] <- NA
-}
-
-
-# Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
-                  bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
-                  NA_indices = NA_indices_weight, occasions = occasions_weight,
-                  morpho = weight, year = capyear, density = density, density.sim = density.sim)
-
-# Initial values
-inits <- function(){list(
-  int = rnorm(1,0,1),
-  z = z.init,
-  beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
-  beta2=rnorm(1,0,1),
-  beta3 = c(NA, rnorm(1,0,1)),#birth site
-  beta4 = rnorm(1,0,1), #density
-  #beta5 = rnorm(1,0,1), # spring pmdi
-  eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
-)
-}
-
-
-parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1')
-
-# MCMC settings
-ni <- 5000
-nt <- 10
-nb <- 1000
-nc <- 3
-
-# Call JAGS from R (BRT 3 min)
-model2<- jagsUI(jags.data, inits, parameters, "model2.jags", n.chains = nc,
+model7<- jagsUI(jags.data, inits, parameters, "model7.jags", n.chains = nc,
                 n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
 
-print(model2)
+print(model7)
+# write.csv(model7$summary, './output/model7.csv')
 
-
-#---- Model3: phi ~ int+ age + age2 + site  ----
-
-
-# Specify model in JAGS language
-set.seed(100)
-sink("model3.jags")
-cat("
-model {
-
-#prior for recapture prob
-p ~ dbeta(1, 1)
-
-
-#priors
-  int ~ dnorm(0, 0.001)
-
-  beta1 ~ dnorm(0, 0.001)
-  beta2 ~ dnorm(0,0.001)
-  
-  beta3[1] <- 0 #ey
-  beta3[2] ~ dnorm(0, 0.01)  #wy
-  
-  #beta4 ~ dnorm( 0 , 0.001) #density
-  
-  #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
-  
-
-
-  eps1[1] <- 0 #capture year RE
-  for (u in 2:14){  #prior for year effect
-   eps1[u] ~ dnorm(0,tau.year)
-  }
-
-  tau.year <- 1/(sigma.year*sigma.year)
-  sigma.year  ~ dunif(0,100)
-
-  tau <- 1/(sigma*sigma)
-  sigma ~ dunif(0,100)
-
-
-# Likelihood
-for (i in 1:nind){
-   # Define latent state at first capture, we know for sure the animal is alive
-      z[i,f[i]] <- 1
-
-      for (t in (f[i]+1):h[i]){
-        # State process
-            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
-                                  + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
-                                  + beta3[ bs[ i ]] #birthsite
-                                  #+ beta4*density[ i , t-1 ]
-                                  #+ beta5*pmdi[ i , t-1 ]
-                                  + eps1[year[ i ]]           #capture year random effect
-
-          # Observation process
-            ch[i,t] ~ dbern(mu2[i,t])
-            mu2[i,t] <- p * z[i,t]
-
-
-
-      } #t
-   } #i
-
-   #derived parameters
-       
-}
-",fill = TRUE)
-sink()
-
-
-#Function for latent state
-z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
-
-for(i in 1:dim(z.init)[1]){
-  z.init[i, f[i]:h[i]] <- 1
-  z.init[i,f[i]] <- NA
-}
-
-
-# Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
-                  bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
-                  NA_indices = NA_indices_weight, occasions = occasions_weight,
-                  morpho = weight, year = capyear, density = density, density.sim = density.sim)
-
-# Initial values
-inits <- function(){list(
-  int = rnorm(1,0,1),
-  z = z.init,
-  beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
-  beta2=rnorm(1,0,1),
-  beta3 = c(NA, rnorm(1,0,1)),#birth site
-  beta4 = rnorm(1,0,1), #density
-  #beta5 = rnorm(1,0,1), # spring pmdi
-  eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
-)
-}
-
-
-parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1')
-
-# MCMC settings
-ni <- 5000
-nt <- 10
-nb <- 1000
-nc <- 3
-
-# Call JAGS from R (BRT 3 min)
-model3<- jagsUI(jags.data, inits, parameters, "model3.jags", n.chains = nc,
-                n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
-
-print(model3)
-
-#---- Model4: int + age + age2 ----
-
-# Specify model in JAGS language
-set.seed(100)
-sink("model4.jags")
-cat("
-model {
-
-#prior for recapture prob
-p ~ dbeta(1, 1)
-
-
-#priors
-  int ~ dnorm(0, 0.001)
-
-  beta1 ~ dnorm(0, 0.001)
-  beta2 ~ dnorm(0,0.001)
-  
-  # beta3[1] <- 0 #ey
-  # beta3[2] ~ dnorm(0, 0.01)  #wy
-  
-  #beta4 ~ dnorm( 0 , 0.001) #density
-  
-  #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
-  
-
-
-  eps1[1] <- 0 #capture year RE
-  for (u in 2:14){  #prior for year effect
-   eps1[u] ~ dnorm(0,tau.year)
-  }
-
-  tau.year <- 1/(sigma.year*sigma.year)
-  sigma.year  ~ dunif(0,100)
-
-  tau <- 1/(sigma*sigma)
-  sigma ~ dunif(0,100)
-
-
-# Likelihood
-for (i in 1:nind){
-   # Define latent state at first capture, we know for sure the animal is alive
-      z[i,f[i]] <- 1
-
-      for (t in (f[i]+1):h[i]){
-        # State process
-            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
-                                  + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
-                                  #+ beta3[ bs[ i ]] #birthsite
-                                  #+ beta4*density[ i , t-1 ]
-                                  #+ beta5*pmdi[ i , t-1 ]
-                                  + eps1[year[ i ]]           #capture year random effect
-
-          # Observation process
-            ch[i,t] ~ dbern(mu2[i,t])
-            mu2[i,t] <- p * z[i,t]
-
-
-
-      } #t
-   } #i
-
-   #derived parameters
-       
-}
-",fill = TRUE)
-sink()
-
-
-#Function for latent state
-z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
-
-for(i in 1:dim(z.init)[1]){
-  z.init[i, f[i]:h[i]] <- 1
-  z.init[i,f[i]] <- NA
-}
-
-
-# Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
-                  bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
-                  NA_indices = NA_indices_weight, occasions = occasions_weight,
-                  morpho = weight, year = capyear, density = density, density.sim = density.sim)
-
-# Initial values
-inits <- function(){list(
-  int = rnorm(1,0,1),
-  z = z.init,
-  beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
-  beta2=rnorm(1,0,1),
-  # beta3 = c(NA, rnorm(1,0,1)),#birth site
-  # beta4 = rnorm(1,0,1), #density
-  #beta5 = rnorm(1,0,1), # spring pmdi
-  eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
-)
-}
-
-
-parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1')
-
-# MCMC settings
-ni <- 5000
-nt <- 10
-nb <- 1000
-nc <- 3
-
-# Call JAGS from R (BRT 3 min)
-model4<- jagsUI(jags.data, inits, parameters, "model4.jags", n.chains = nc,
-                n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
-
-print(model4)
-
-#---- Model5: phi ~ int   ----
-
-
-# Specify model in JAGS language
-set.seed(100)
-sink("model5.jags")
-cat("
-model {
-
-#prior for recapture prob
-p ~ dbeta(1, 1)
-
-
-#priors
-  int ~ dnorm(0, 0.001)
-
-  # beta1 ~ dnorm(0, 0.001)
-  # beta2 ~ dnorm(0,0.001)
-  
-  # beta3[1] <- 0 #ey
-  # beta3[2] ~ dnorm(0, 0.01)  #wy
-  
-  #beta4 ~ dnorm( 0 , 0.001) #density
-  
-  #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
-  
-
-
-  eps1[1] <- 0 #capture year RE
-  for (u in 2:14){  #prior for year effect
-   eps1[u] ~ dnorm(0,tau.year)
-  }
-
-  tau.year <- 1/(sigma.year*sigma.year)
-  sigma.year  ~ dunif(0,100)
-
-  tau <- 1/(sigma*sigma)
-  sigma ~ dunif(0,100)
-
-
-# Likelihood
-for (i in 1:nind){
-   # Define latent state at first capture, we know for sure the animal is alive
-      z[i,f[i]] <- 1
-
-      for (t in (f[i]+1):h[i]){
-        # State process
-            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int #+ beta1*ageclass[ i , t-1 ]   #age 
-                                  #+ (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
-                                  #+ beta3[ bs[ i ]] #birthsite
-                                  #+ beta4*density[ i , t-1 ]
-                                  #+ beta5*pmdi[ i , t-1 ]
-                                  + eps1[year[ i ]]           #capture year random effect
-
-          # Observation process
-            ch[i,t] ~ dbern(mu2[i,t])
-            mu2[i,t] <- p * z[i,t]
-
-          # Log-likelihood for WAIC      
-            loglik[i,t] <- logdensity.bern(ch[i,t], mu2[i,t])
-
-
-      } #t
-   } #i
-
-   #derived parameters
-       
-}
-",fill = TRUE)
-sink()
-
-
-#Function for latent state
-z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
-
-for(i in 1:dim(z.init)[1]){
-  z.init[i, f[i]:h[i]] <- 1
-  z.init[i,f[i]] <- NA
-}
-
-
-# Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
-                  bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
-                  NA_indices = NA_indices_weight, occasions = occasions_weight,
-                  morpho = weight, year = capyear, density = density, density.sim = density.sim)
-
-# Initial values
-inits <- function(){list(
-  int = rnorm(1,0,1),
-  z = z.init,
-  # beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
-  # beta2=rnorm(1,0,1),
-  # beta3 = c(NA, rnorm(1,0,1)),#birth site
-  # beta4 = rnorm(1,0,1), #density
-  #beta5 = rnorm(1,0,1), # spring pmdi
-  eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
-)
-}
-
-
-parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1', 'loglik')
-
-# MCMC settings
-ni <- 5000
-nt <- 10
-nb <- 1000
-nc <- 3
-
-# Call JAGS from R (BRT 3 min)
-model5<- jagsUI(jags.data, inits, parameters, "model5.jags", n.chains = nc,
-                n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
-
-print(model5)
-
-# loglik_array <- model5$sims.list$loglik
-# 
-# library(loo)
-# 
-# # flatten i,t into columns
-# loglik_mat <- apply(loglik_array, 1, c)
-# loglik_mat <- t(loglik_mat)
-# 
-# # remove columns with NA (unobserved entries)
-# loglik_mat <- loglik_mat[, colSums(is.na(loglik_mat)) == 0]
-# loglik_mat <- loglik_mat[, apply(loglik_mat, 2, var) > 0]
-# loo_result <- loo(loglik_mat)
-# 
-# print(loo_result)
-# 
-# print(loo_result)
-# loo_result$diagnostics$pareto_k
-# loo_result <- loo(loglik_mat, moment_match = TRUE)
-
-#---- Model6: phi ~ int+ age + age2 + density  ----
-
-
-# Specify model in JAGS language
-set.seed(100)
-sink("model6.jags")
-cat("
-model {
-
-#prior for recapture prob
-p ~ dbeta(1, 1)
-
-
-#priors
-  int ~ dnorm(0, 0.001)
-
-  beta1 ~ dnorm(0, 0.001)
-  beta2 ~ dnorm(0,0.001)
-  
-  # beta3[1] <- 0 #ey
-  # beta3[2] ~ dnorm(0, 0.01)  #wy
-  
-  beta4 ~ dnorm( 0 , 0.001) #density
-  
-  #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
-  
-
-
-  eps1[1] <- 0 #capture year RE
-  for (u in 2:14){  #prior for year effect
-   eps1[u] ~ dnorm(0,tau.year)
-  }
-
-  tau.year <- 1/(sigma.year*sigma.year)
-  sigma.year  ~ dunif(0,100)
-
-  tau <- 1/(sigma*sigma)
-  sigma ~ dunif(0,100)
-
-
-# Likelihood
-for (i in 1:nind){
-   # Define latent state at first capture, we know for sure the animal is alive
-      z[i,f[i]] <- 1
-
-      for (t in (f[i]+1):h[i]){
-        # State process
-            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
-                                  + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
-                                  #+ beta3[ bs[ i ]] #birthsite
-                                  + beta4*density[ i , t-1 ]
-                                  #+ beta5*pmdi[ i , t-1 ]
-                                  + eps1[year[ i ]]           #capture year random effect
-
-          # Observation process
-            ch[i,t] ~ dbern(mu2[i,t])
-            mu2[i,t] <- p * z[i,t]
-
-
-
-      } #t
-   } #i
-
-   #derived parameters
-       
-}
-",fill = TRUE)
-sink()
-
-
-#Function for latent state
-z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
-
-for(i in 1:dim(z.init)[1]){
-  z.init[i, f[i]:h[i]] <- 1
-  z.init[i,f[i]] <- NA
-}
-
-
-# Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
-                  bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
-                  NA_indices = NA_indices_weight, occasions = occasions_weight,
-                  morpho = weight, year = capyear, density = density, density.sim = density.sim)
-
-# Initial values
-inits <- function(){list(
-  int = rnorm(1,0,1),
-  z = z.init,
-  beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
-  beta2=rnorm(1,0,1),
-  beta3 = c(NA, rnorm(1,0,1)),#birth site
-  beta4 = rnorm(1,0,1), #density
-  #beta5 = rnorm(1,0,1), # spring pmdi
-  eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
-)
-}
-
-
-parameters <- c('int', 'beta1', 'beta2', 'beta3',"beta4",'beta5',  'eps1')
-
-# MCMC settings
-ni <- 5000
-nt <- 10
-nb <- 1000
-nc <- 3
-
-# Call JAGS from R (BRT 3 min)
-model6<- jagsUI(jags.data, inits, parameters, "model6.jags", n.chains = nc,
-                n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
-
-print(model6)
-
+# ---- Model Selection ----
 
 
 model_list <- list(
@@ -886,7 +1018,8 @@ model_list <- list(
   m3 =  c(model3$pD, model3$DIC),
   m4 =  c(model4$pD, model4$DIC),
   m5 =  c(model5$pD, model5$DIC),
-  m6 = c(model6$pD, model6$DIC)
+  m6 = c(model6$pD, model6$DIC),
+  m7 = c(model7$pD, model7$DIC)
 )
 
 model_mat <- do.call(rbind, model_list)
@@ -895,3 +1028,52 @@ colnames(model_mat) <- c("pD", "DIC")
 
 models<- as.data.frame(model_mat)
 write.csv(models, "./output/modelselection.csv")
+
+
+
+
+#---- Model 7 Plots ----
+
+#create a tibble of the posterior draws
+gather <- model7 %>%
+  spread_draws(phi.age[site,age])
+
+age_lookup <- tibble(
+  age = 1:15, #change to account for age.sim
+  ageclass = (age.sim * sd(ageclass, na.rm = TRUE)) + 
+    mean(ageclass, na.rm = TRUE)
+)
+
+gather <- gather %>%
+  left_join(age_lookup, by = "age")
+
+gather$site <- as.factor(gather$site)
+gather$site <- factor(gather$site,
+                      levels = c(1, 2),
+                      labels = c("East Yana", "West Yana"))
+
+phi.plot<- gather %>%
+  ggplot(aes(x=ageclass, y=phi.age, color = site)) +
+  stat_lineribbon(.width = 0.95)+
+  guides(fill = "none")+ #remove legend from ribbon
+  scale_fill_viridis_d(option = 'turbo', alpha = .2 ) + #this allowed me to opacify the ribbon but not the line
+  scale_color_viridis_d(option = 'turbo')+ #color of line but no opacification
+  labs(x = "Age", y = "Annual Survival Probability", title = "")+
+  scale_x_continuous(breaks = c(1.5, 3.5, 5.5, 7.5, 9.5, 11.5, 13.5)) +  
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        legend.position = "inside",
+        legend.position.inside = c(0.9,0.8),          # x, y inside the plot area
+        legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+        legend.text = element_text(size = 16),
+        legend.title = element_blank(),
+        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+        axis.title = element_text(face = 'bold',size = 18, hjust = 0.5),
+        axis.text = element_text(face='bold',size = 16),
+        # axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+phi.plot
+ggsave('./figures/phi.agexsite.jpg', phi.plot, width = 8, height = 8)

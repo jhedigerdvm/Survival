@@ -8,26 +8,9 @@ p ~ dbeta(1, 1)
 #priors
   int ~ dnorm(0, 0.001)
 
-  beta1 ~ dnorm(0, 0.001)
-  beta2 ~ dnorm(0,0.001)
+  beta1 ~ dnorm(0, 0.001) #age
+  beta2 ~ dnorm(0,0.001) #age.old
   
-  beta3[1] <- 0 #ey
-  beta3[2] ~ dnorm(0, 0.01)  #wy
-  
-  beta4 ~ dnorm( 0 , 0.001) #density
-  
-  #beta5 ~ dnorm ( 0 , 0.001) #pmdi spring
-  
-
-
-  eps1[1] <- 0 #capture year RE
-  for (u in 2:14){  #prior for year effect
-   eps1[u] ~ dnorm(0,tau.year)
-  }
-
-  tau.year <- 1/(sigma.year*sigma.year)
-  sigma.year  ~ dunif(0,100)
-
   tau <- 1/(sigma*sigma)
   sigma ~ dunif(0,100)
 
@@ -41,12 +24,9 @@ for (i in 1:nind){
         # State process
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age 
-                                  + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
-                                  + beta3[ bs[ i ]] #birthsite
-                                  + beta4*density[ i , t-1 ]
-                                  #+ beta5*pmdi[ i , t-1 ]
-                                  + eps1[year[ i ]]           #capture year random effect
+            logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age
+                                  + beta2*age.old[ i , t-1 ]
+
 
           # Observation process
             ch[i,t] ~ dbern(mu2[i,t])
@@ -58,6 +38,19 @@ for (i in 1:nind){
    } #i
 
    #derived parameters
-       
+   
+    for (j in 1:15) { #simulated age
+            phi.age[j] <- exp( int + beta1*age.sim[j]
+                                      + beta2*age.old.sim[j]
+
+                                      ) /
+                               (1 + exp( int + beta1*age.sim[j]
+                                                  + beta2*age.old.sim[j]
+
+
+                                             ) )
+
+          }
+   
 }
 

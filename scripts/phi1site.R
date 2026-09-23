@@ -1574,137 +1574,137 @@ phi.plot
 # # 
 # # # 
 # 
-# #---- Model: age gompertz ----
-# 
-# 
-# # Specify model in JAGS language
-# set.seed(100)
-# sink("phi.age.jags")
-# cat("
-# model {
-# 
-# #prior for recapture prob
-# p ~ dbeta(1, 1)
-# 
-# 
-# #priors
-#  
-#   lambda ~ dunif(0,5)
-#   #gamma ~ dnorm(0,0.001)
-#   beta0 ~ dnorm(0, 0.001)
-#   beta1[1] <- 0
-#   beta1[2] ~ dnorm(0,0.001)
-# 
-# 
-# # Likelihood
-# for (i in 1:nind){
-#       #gamma for site 
-#           gamma[i] <- beta0 + beta1[bs[i]]
-#             
-#       # Define latent state at first capture, we know for sure the animal is alive
-#           z[i,f[i]] <- 1
-# 
-#       for (t in (f[i]+1):h[i]){
-#         
-#         
-#       
-#         #Gompertz Hazard
-#             y[i,t-1] <- lambda * exp(-gamma[i]*ageclass[i, t-1] )
-#             
-#         # State process
-#             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-#             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-#             phi[i,t-1] <-  exp(-y[i, t-1])
-#             
-# 
-#           # Observation process
-#             ch[i,t] ~ dbern(mu2[i,t])
-#             mu2[i,t] <- p * z[i,t]
-# 
-# 
-# 
-#       } #t
-#    } #i
-# 
-# 
-#    #derived parameters
-#     
-#     for (i in 1:2){
-#         gamma.site[i] <- beta0 + beta1[bs[i]]
-# 
-#       for (j in 1:15){
-#        phi.age[i,j] <- exp(-(lambda * exp(-gamma.site[i] * age.sim[j])))
-#     }
-#   
-#   }
-#    
-#    
-#         # for (i in 1:2){ #bs
-#         #   for (j in 1:15) { #age
-#         #     phi.age[i,j] <- exp(-(lambda * exp(-gamma[bs[i]]*age.sim[j])))
-#         # 
-#         #   }}
-#           
-#           #
-#           # for (j in 2:15) {
-#           #   phi_diff[j] <- phi.age[j] - phi.age[j-1]
-#           # 
-#           # }
-#           # 
-#           # 
-#           # 
-#           # age_decline <- log(lambda) / gamma
-# 
-#       
-# 
-# }
-# ",fill = TRUE)
-# sink()
-# 
-# 
-# #Function for latent state
-# z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
-# 
-# for(i in 1:dim(z.init)[1]){
-#   z.init[i, f[i]:h[i]] <- 1
-#   z.init[i,f[i]] <- NA
-# }
-# 
-# 
-# # Bundle data
-# jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
-#                   bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
-#                   NA_indices = NA_indices_weight, occasions = occasions_weight,
-#                   morpho = weight, year = capyear, density = density, density.sim = density.sim)
-# 
-# # Initial values
-# inits <- function(){list(
-#   beta0 = rnorm(1,0,1),
-#   z = z.init,
-#   beta1 = c(NA, rnorm(1,0,1)),
-#   lambda = runif(1,0,5)
-#   #gamma = rnorm(1,0,1)#,
-#   
-# )
-# }
-# 
-# 
-# parameters <- c('beta0', 'beta1', 'phi.age', 'age_decline', 'phi_diff', 'lambda'
-#                 )
-# 
-# # MCMC settings
-# ni <- 5000
-# nt <- 10
-# nb <- 1000
-# nc <- 3
-# 
-# # Call JAGS from R (BRT 3 min)
-# phi.age<- jagsUI(jags.data, inits, parameters, "phi.age.jags", n.chains = nc,
-#                  n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
-# 
-# print(phi.age)
-# MCMCtrace(phi.age)
-# # 
+#---- Model: age gompertz ----
+
+
+# Specify model in JAGS language
+set.seed(100)
+sink("phi.age.jags")
+cat("
+model {
+
+#prior for recapture prob
+p ~ dbeta(1, 1)
+
+
+#priors
+
+  lambda ~ dunif(0,5)
+  #gamma ~ dnorm(0,0.001)
+  beta0 ~ dnorm(0, 0.001)
+  beta1[1] <- 0
+  beta1[2] ~ dnorm(0,0.001)
+
+
+# Likelihood
+for (i in 1:nind){
+      #gamma for site
+          gamma[i] <- beta0 + beta1[bs[i]]
+
+      # Define latent state at first capture, we know for sure the animal is alive
+          z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):h[i]){
+
+
+
+        #Gompertz Hazard
+            y[i,t-1] <- lambda * exp(-gamma[i]*ageclass[i, t-1] )
+
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            phi[i,t-1] <-  exp(-y[i, t-1])
+
+
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+
+
+
+      } #t
+   } #i
+
+
+   #derived parameters
+
+    for (i in 1:2){
+        gamma.site[i] <- beta0 + beta1[bs[i]]
+
+      for (j in 1:15){
+       phi.age[i,j] <- exp(-(lambda * exp(-gamma.site[i] * age.sim[j])))
+    }
+
+  }
+
+
+        # for (i in 1:2){ #bs
+        #   for (j in 1:15) { #age
+        #     phi.age[i,j] <- exp(-(lambda * exp(-gamma[bs[i]]*age.sim[j])))
+        #
+        #   }}
+
+          #
+          # for (j in 2:15) {
+          #   phi_diff[j] <- phi.age[j] - phi.age[j-1]
+          #
+          # }
+          #
+          #
+          #
+          # age_decline <- log(lambda) / gamma
+
+
+
+}
+",fill = TRUE)
+sink()
+
+
+#Function for latent state
+z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
+
+for(i in 1:dim(z.init)[1]){
+  z.init[i, f[i]:h[i]] <- 1
+  z.init[i,f[i]] <- NA
+}
+
+
+# Bundle data
+jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc, pmdi = pmdi.spring.sc,
+                  bs = bs, morpho.sim = weight.sim, pmdi.sim = pmdi.spring.sc.sim, age.sim = age.sim,
+                  NA_indices = NA_indices_weight, occasions = occasions_weight,
+                  morpho = weight, year = capyear, density = density, density.sim = density.sim)
+
+# Initial values
+inits <- function(){list(
+  beta0 = rnorm(1,0,1),
+  z = z.init,
+  beta1 = c(NA, rnorm(1,0,1)),
+  lambda = runif(1,0,5)
+  #gamma = rnorm(1,0,1)#,
+
+)
+}
+
+
+parameters <- c('beta0', 'beta1', 'phi.age', 'age_decline', 'phi_diff', 'lambda'
+                )
+
+# MCMC settings
+ni <- 5000
+nt <- 10
+nb <- 1000
+nc <- 3
+
+# Call JAGS from R (BRT 3 min)
+phi.age<- jagsUI(jags.data, inits, parameters, "phi.age.jags", n.chains = nc,
+                 n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+
+print(phi.age)
+MCMCtrace(phi.age)
+#
 # write.csv(phi.age$summary, './output/phi.gompertz.csv')
 # # 
 # 

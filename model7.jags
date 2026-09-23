@@ -59,19 +59,31 @@ for (i in 1:nind){
    } #i
 
    #derived parameters
-        # for ( i in 1:2){ #site
-        #   for (j in 1:15) { #simulated age
-        #     phi.age[i,j] <- exp( int + beta1*age.sim[j] 
-        #                               + beta2*age.sim[j]*age.sim[j] 
-        #                               + beta3[i]
-        #                               + beta4[i]*age.sim[j]
-        #                               + beta5[i]*age.sim[j]*age.sim[j]) / 
-        #                        (1 + exp( int+ beta1*age.sim[j] 
-        #                                       + beta2*age.sim[j]*age.sim[j] 
-        #                                       + beta3[i]
-        #                                       + beta4[i]*age.sim[j]
-        #                                       + beta5[i]*age.sim[j]*age.sim[j]) )
-        # 
-        #   }}
+        for ( i in 1:2){ #site
+          for (j in 1:13) { #simulated age
+            phi.age[i,j] <- exp( int + beta1*age.sim[j]
+                                      + beta2*age.sim[j]*age.sim[j]
+                                      + beta3[i]
+                                      + beta4[i]*age.sim[j]
+                                      + beta5[i]*age.sim[j]*age.sim[j]) /
+                               (1 + exp( int+ beta1*age.sim[j]
+                                              + beta2*age.sim[j]*age.sim[j]
+                                              + beta3[i]
+                                              + beta4[i]*age.sim[j]
+                                              + beta5[i]*age.sim[j]*age.sim[j]) )
+
+          }}
+          
+         
+            for (j in 1:13) {
+                phi.site.diff[j] <- phi.age[2,j] - phi.age[1,j]
+            }
+          
+          for ( i in 1:2 ){
+            for ( j in 2:13 ) {
+              phi.age.diff[i,j] <- phi.age[i,j] - phi.age[i,j-1]
+          
+            }}
+          
 }
 

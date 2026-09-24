@@ -16,7 +16,7 @@ library(here)
 # data <- read.csv('./cleaned/ch.pmdi.csv', header = T)
 data <- read.csv('./cleaned/fawncaphx.csv', header = T)
 
-data <- data %>% filter(bs %in% "ey")
+data <- data %>% filter(bs %in% "ey" & !birth_year == "2022")
 
 #take long form and convert into wide for CH matrix
 ch<- pivot_wider(data, names_from = 'cap_year', values_from = 'status_cam', id_cols = 'animal_id' )
@@ -34,23 +34,33 @@ ch[indices] <- 1
 get.first <- function(x) min(which(x!=0)) #x! identifies when x is not equal to zero
 f <- apply(ch, 1, get.first) 
 
-#create ageclass matrix treating age as categorical
-# ageclass<- pivot_wider(data, names_from = 'year', values_from = 'ageclass', id_cols = 'animal_id' )
-# ageclass<- ageclass[,-1]
-# ageclass<-as.matrix(ageclass)
-
 #scale and center age
 age.mean <- mean(data$age, na.rm = TRUE)
 age.sd <- sd(data$age, na.rm = TRUE)
 data$age.sc <- (data$age - age.mean) / age.sd
 
-age.sc <- pivot_wider(data, names_from = 'cap_year', values_from = 'age.sc', id_cols = 'animal_id' )
+age.sc <- pivot_wider(
+  data, 
+  names_from = 'cap_year', 
+  values_from = 'age.sc', 
+  id_cols = 'animal_id' 
+  )
 age.sc<- as.matrix(age.sc[,-1])
 
-age.pred <- seq(0.5, 15.5, by = 1)
+age.raw <- pivot_wider(
+  data,
+  names_from = cap_year,
+  values_from = age,
+  id_cols = animal_id
+)
+age.raw <- as.matrix(age.raw[,-1])
 
+age.pred <- seq(0.5, 15.5, by = 1)
 age.pred.sc <- (age.pred - age.mean) / age.sd
 
+#age simulation
+age.sim <- age.pred.sc
+nvalues <- length(age.sim)
 
 #create birth year vector
 birthyear <- as.numeric(as.factor(data$birth_year))
@@ -58,46 +68,69 @@ birthyear <- as.numeric(as.factor(data$birth_year))
 #create capture year vector
 capyear <- f
 
-# 
+
+#create pmdi data
+  pmdi.vars <- c(     #create list of pmdi variables
+    "pmdi_annual",
+    "pmdi_spring",
+    "pmdi_summer",
+    "pmdi_fall",
+    "pmdi_winter"
+  )
+  
+  pmdi.stats <- data.frame(   #create dataframe to store means and SD of pmdi variables
+    variable = pmdi.vars,
+    mean = NA,
+    sd = NA
+  )
+  
+  for(i in seq_along(pmdi.vars)){ #for loop to scale and center pmdi values and create new SC columns
+    
+    v <- pmdi.vars[i]
+    
+    mu <- mean(data[[v]], na.rm = TRUE)
+    sig <- sd(data[[v]], na.rm = TRUE)
+    
+    pmdi.stats$mean[i] <- mu
+    pmdi.stats$sd[i] <- sig
+    
+    data[[paste0(v, "_sc")]] <-
+      (data[[v]] - mu) / sig #scaled and centered calculation
+  }
+
+#now create list for pmdi matrices that are scaled and centered
+  pmdi.vars <- c(
+    "pmdi_annual_sc",
+    "pmdi_spring_sc",
+    "pmdi_summer_sc",
+    "pmdi_fall_sc",
+    "pmdi_winter_sc"
+  )
+  
+  pmdi.list <- list()
+  
+  for(v in pmdi.vars){
+    
+    tmp <- pivot_wider(
+      data,
+      names_from = cap_year,
+      values_from = all_of(v),
+      id_cols = animal_id
+    )
+    
+    tmp <- as.matrix(tmp[,-1])
+    
+    pmdi.list[[v]] <- tmp
+    
+  }
+
+
 # create vector with last occasion for each individual, marked by 2, 15 for end of study
 # rework h to only include capture myopathy or harvest, do not censor natural mortality
 get.last<- function(x) min(which(x>1))
 h <- apply(known.fate,1,get.last)
 h <- replace(h, is.infinite(h), 15) #change to equal number of columns/years
 h
-f-h #check for zero
-
-#identify 0 and +1 indiv
-problem <- which((h - f) <= 1)
-
-length(problem)
-
-data.frame(
-  id = data$animal_id[problem],
-  f = f[problem],
-  h = h[problem]
-)
-
-known.fate[problem, ]
-
-#identify the individuals to keep and adjust lists and vectors
-keep <- which((h - f) > 0)
-
-known.fate <- known.fate[keep, ]
-ch <- ch[keep, ]
-f <- f[keep]
-h <- h[keep]
-birthyear <- birthyear[keep]
-capyear <- capyear[keep]
-age.sc <- age.sc[keep, ]
-
-#verify the fix
-which((h - f) <= 0)
-
-#age simulation for continuous model
-age.sim <- age.pred.sc
-nvalues <- length(age.sim)
-
 
 #Function for latent state
 z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
@@ -107,152 +140,151 @@ for(i in 1:dim(z.init)[1]){
   z.init[i,f[i]] <- NA
 }
 
+# # 
+# #---- Model1: phi ~ int + age + age2   ----
 # 
-#---- Model1: phi ~ int + age + age2   ----
-
-
-# Specify model in JAGS language
-set.seed(100)
-sink("model1.jags")
-cat("
-model {
-
-#prior for recapture prob
-p ~ dbeta(1, 1)
-
-
-#priors
-  int ~ dnorm(0, 0.001)
-
-  beta1 ~ dnorm(0, 0.001) #age
-  beta2 ~ dnorm(0,0.001) #age ^2
-  
-  tau <- 1/(sigma*sigma)
-  sigma ~ dunif(0,100)
-
-
-# Likelihood
-for (i in 1:nind){
-   # Define latent state at first capture, we know for sure the animal is alive
-      z[i,f[i]] <- 1
-
-      for (t in (f[i]+1):h[i]){
-        # State process
-            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age
-                                  + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
-
-
-          # Observation process
-            ch[i,t] ~ dbern(mu2[i,t])
-            mu2[i,t] <- p * z[i,t]
-
-
-
-      } #t
-   } #i
-
-   #derived parameters
-   
-       for (j in 1:15) { #simulated age
-            phi.age[j] <- exp( int + beta1*age.sim[j]
-                                      + beta2*age.sim[j]*age.sim[j]
-
-                                      ) /
-                               (1 + exp( int+ beta1*age.sim[j]
-                                              + beta2*age.sim[j]*age.sim[j]
-
-
-                                             ) )
-
-          }
-
-
-}
-",fill = TRUE)
-sink()
-
-# Bundle data
-jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc,
-                   year = capyear, age.sim = age.sim)
-
-
-# Initial values
-inits <- function(){list(
-  int = rnorm(1,0,1),
-  z = z.init,
-  beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
-  beta2=rnorm(1,0,1)
-
-  
-  
-  # 
-  # eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
-)
-}
-
-
-parameters <- c('int', 'beta1', 'beta2', 'phi.age')
-
-# MCMC settings
-ni <- 2000
-nt <- 10
-nb <- 1000
-nc <- 3
-
-# Call JAGS from R (BRT 3 min)
-model1<- jagsUI(jags.data, inits, parameters, "model1.jags", n.chains = nc,
-                n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
-
-print(model1)
-
-
-
-# #---- Model 1 Plots ----
-
-#create a tibble of the posterior draws
-gather <- model1 %>%
-  spread_draws(phi.age[age])
 # 
-# age_lookup <- tibble(
-#   age = 1:length(age.sim), #change to account for age.sim
-#   ageclass = (age.sim * sd(ageclass, na.rm = TRUE)) +
-#     mean(ageclass, na.rm = TRUE)
+# # Specify model in JAGS language
+# set.seed(100)
+# sink("model1.jags")
+# cat("
+# model {
+# 
+# #prior for recapture prob
+# p ~ dbeta(1, 1)
+# 
+# 
+# #priors
+#   int ~ dnorm(0, 0.001)
+# 
+#   beta1 ~ dnorm(0, 0.001) #age
+#   beta2 ~ dnorm(0,0.001) #age ^2
+#   
+#   tau <- 1/(sigma*sigma)
+#   sigma ~ dunif(0,100)
+# 
+# 
+# # Likelihood
+# for (i in 1:nind){
+#    # Define latent state at first capture, we know for sure the animal is alive
+#       z[i,f[i]] <- 1
+# 
+#       for (t in (f[i]+1):h[i]){
+#         # State process
+#             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+#             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+#             logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age
+#                                   + (beta2*ageclass[ i , t-1 ]*ageclass[ i , t-1 ] )
+# 
+# 
+#           # Observation process
+#             ch[i,t] ~ dbern(mu2[i,t])
+#             mu2[i,t] <- p * z[i,t]
+# 
+# 
+# 
+#       } #t
+#    } #i
+# 
+#    #derived parameters
+#    
+#        # for (j in 1:15) { #simulated age
+#        #      phi.age[j] <- exp( int + beta1*age.sim[j]
+#        #                                + beta2*age.sim[j]*age.sim[j]
+#        # 
+#        #                                ) /
+#        #                         (1 + exp( int+ beta1*age.sim[j]
+#        #                                        + beta2*age.sim[j]*age.sim[j]
+#        # 
+#        # 
+#        #                                       ) )
+#        # 
+#        #    }
+# 
+# 
+# }
+# ",fill = TRUE)
+# sink()
+# 
+# # Bundle data
+# jags.data <- list(h = h, ch = ch, f = f, nind = nrow(ch), ageclass = age.sc,
+#                    year = capyear, age.sim = age.sim)
+# 
+# 
+# # Initial values
+# inits <- function(){list(
+#   int = rnorm(1,0,1),
+#   z = z.init,
+#   beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
+#   beta2=rnorm(1,0,1)
+# 
+#   
+#   
+#   # 
+#   # eps1 = c(NA, rnorm(13, 0, 1))     #capture year random effect
 # )
+# }
 # 
-# gather <- gather %>%
-#   left_join(age_lookup, by = "age")
-
-
-phi.plot<- gather %>%
-  ggplot(aes(x=age, y=phi.age)) +
-  stat_lineribbon(.width = 0.95)+
-  guides(fill = "none")+ #remove legend from ribbon
-  scale_fill_viridis_d(option = 'turbo', alpha = .2 ) + #this allowed me to opacify the ribbon but not the line
-  scale_color_viridis_d(option = 'turbo')+ #color of line but no opacification
-  labs(x = "Age", y = "Annual Survival Probability", title = "")+
-  # scale_x_continuous(breaks = c(1.5, 3.5, 5.5, 7.5, 9.5, 11.5, 13.5)) +
-  theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.border = element_blank(),
-        axis.line = element_line(),
-        legend.position = "inside",
-        legend.position.inside = c(0.9,0.8),          # x, y inside the plot area
-        legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
-        legend.text = element_text(size = 16),
-        legend.title = element_blank(),
-        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
-        axis.title = element_text(face = 'bold',size = 18, hjust = 0.5),
-        axis.text = element_text(face='bold',size = 16),
-        # axis.text.x = element_text(angle = 45, hjust = 1),
-        panel.background = element_rect(fill='transparent'), #transparent panel bg
-        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
-phi.plot
+# 
+# parameters <- c('int', 'beta1', 'beta2', 'phi.age')
+# 
+# # MCMC settings
+# ni <- 2000
+# nt <- 10
+# nb <- 1000
+# nc <- 3
+# 
+# # Call JAGS from R (BRT 3 min)
+# model1<- jagsUI(jags.data, inits, parameters, "model1.jags", n.chains = nc,
+#                 n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+# 
+# print(model1)
+# 
+# 
+# 
+# # #---- Model 1 Plots ----
+# 
+# #create a tibble of the posterior draws
+# gather <- model1 %>%
+#   spread_draws(phi.age[age])
+# # 
+# # age_lookup <- tibble(
+# #   age = 1:length(age.sim), #change to account for age.sim
+# #   ageclass = (age.sim * sd(ageclass, na.rm = TRUE)) +
+# #     mean(ageclass, na.rm = TRUE)
+# # )
+# # 
+# # gather <- gather %>%
+# #   left_join(age_lookup, by = "age")
+# 
+# 
+# phi.plot<- gather %>%
+#   ggplot(aes(x=age, y=phi.age)) +
+#   stat_lineribbon(.width = 0.95)+
+#   guides(fill = "none")+ #remove legend from ribbon
+#   scale_fill_viridis_d(option = 'turbo', alpha = .2 ) + #this allowed me to opacify the ribbon but not the line
+#   scale_color_viridis_d(option = 'turbo')+ #color of line but no opacification
+#   labs(x = "Age", y = "Annual Survival Probability", title = "")+
+#   # scale_x_continuous(breaks = c(1.5, 3.5, 5.5, 7.5, 9.5, 11.5, 13.5)) +
+#   theme_bw() +
+#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+#         panel.border = element_blank(),
+#         axis.line = element_line(),
+#         legend.position = "inside",
+#         legend.position.inside = c(0.9,0.8),          # x, y inside the plot area
+#         legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+#         legend.text = element_text(size = 16),
+#         legend.title = element_blank(),
+#         plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+#         axis.title = element_text(face = 'bold',size = 18, hjust = 0.5),
+#         axis.text = element_text(face='bold',size = 16),
+#         # axis.text.x = element_text(angle = 45, hjust = 1),
+#         panel.background = element_rect(fill='transparent'), #transparent panel bg
+#         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+# phi.plot
 
 #---- Model2: piece-wise linear regression analysis    ----
-#create knot/inflexion point
-# knot <- 7:13
+
 #store models for different knot points
 models <- list()
 
@@ -261,39 +293,9 @@ dic.df <- data.frame(
   DIC = NA
 )
 
-#create age data
-  age.raw <- pivot_wider(
-    data,
-    names_from = cap_year,
-    values_from = age,
-    id_cols = animal_id
-  )
-  
-  age.raw <- as.matrix(age.raw[,-1])
-
-# keep same individuals as ch
-  age.raw <- age.raw[keep, ]
-  
-  # age.old <- pmax(age.raw - knot, 0)
-  
-
-
-
-#scale and center age
-  age.mean <- mean(data$age, na.rm = TRUE)
-  age.sd <- sd(data$age, na.rm = TRUE)
-  data$age.sc <- (data$age - age.mean) / age.sd
-  
-  age.sc <- pivot_wider(data, names_from = 'cap_year', values_from = 'age.sc', id_cols = 'animal_id' )
-  age.sc<- as.matrix(age.sc[,-1])
-
-  age.pred <- seq(0.5, 15.5, by = 1)
-  
-  age.pred.sc <- (age.pred - age.mean) / age.sd
-  
+#create beta spline with single knot point
   age.old.pred <- pmax(age.pred - knot, 0)
   age.old.sim <- age.old.pred
-  
   
 #age simulation for continuous model
   age.sim <- age.pred.sc
@@ -303,13 +305,16 @@ dic.df <- data.frame(
   inits <- function(){list(
     int = rnorm(1,0,1),
     z = z.init,
-    beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
+    beta1 = rnorm(1,0,1), 
     beta2=rnorm(1,0,1)
      )
   }
 
 #Parameters to monitor
-  parameters <- c('int', 'beta1', 'beta2', 'phi.age')
+  parameters <- c('int', 
+                  'beta1', 
+                  'beta2', 
+                  'phi.age')
   
 # MCMC settings
   ni <- 5000
@@ -344,10 +349,11 @@ for (i in 1:nind){
 
       for (t in (f[i]+1):h[i]){
         # State process
-            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
-            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
-            logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age
+            z[i,t] ~ dbern(mu1[i,t]) 
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  
+            logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]  
                                   + beta2*age.old[ i , t-1 ]
+                                  
 
 
           # Observation process
@@ -465,3 +471,156 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
+
+
+#---- Model3: piece-wise linear regression analysis, PMDI    ----
+
+#create age data
+age.raw <- pivot_wider(
+  data,
+  names_from = cap_year,
+  values_from = age,
+  id_cols = animal_id
+)
+
+age.raw <- as.matrix(age.raw[,-1])
+
+age.pred <- seq(0.5, 15.5, by = 1)
+
+age.pred.sc <- (age.pred - age.mean) / age.sd
+
+age.old.pred <- pmax(age.pred - 9, 0) #knot point of 9 from previous model selection
+age.old.sim <- age.old.pred
+
+
+#age simulation for continuous model
+age.sim <- age.pred.sc
+nvalues <- length(age.sim)
+
+
+# Initial values
+inits <- function(){list(
+  int = rnorm(1,0,1),
+  z = z.init,
+  beta1 = rnorm(1,0,1), # c(NA, rnorm(14,0,1)),     #age beta
+  beta2=rnorm(1,0,1),
+  beta3 = rnorm(1,0,1)
+)
+}
+
+#Parameters to monitor
+parameters <- c('int', 'beta1', 'beta2', 'beta3', 'phi.age')
+
+# MCMC settings
+ni <- 5000
+nt <- 10
+nb <- 1000
+nc <- 3
+
+# Specify model in JAGS language
+set.seed(100)
+sink("model2.jags")
+cat("
+model {
+
+#prior for recapture prob
+p ~ dbeta(1, 1)
+
+
+#priors
+  int ~ dnorm(0, 0.001)
+
+  beta1 ~ dnorm(0, 0.001) #age
+  beta2 ~ dnorm(0,0.001) #age.old
+  beta3 ~ dnorm(0,0.001)
+  
+  tau <- 1/(sigma*sigma)
+  sigma ~ dunif(0,100)
+
+
+# Likelihood
+for (i in 1:nind){
+   # Define latent state at first capture, we know for sure the animal is alive
+      z[i,f[i]] <- 1
+
+      for (t in (f[i]+1):h[i]){
+        # State process
+            z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
+            mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
+            logit(phi[i,t-1]) <- int + beta1*ageclass[ i , t-1 ]   #age
+                                  + beta2*age.old[ i , t-1 ]
+                                  + beta3*drought[i,t-1]
+
+
+          # Observation process
+            ch[i,t] ~ dbern(mu2[i,t])
+            mu2[i,t] <- p * z[i,t]
+
+
+
+      } #t
+   } #i
+
+   #derived parameters
+   
+    for (j in 1:15) { #simulated age
+            phi.age[j] <- exp( int + beta1*age.sim[j]
+                                      + beta2*age.old.sim[j]
+                                      
+
+                                      ) /
+                               (1 + exp( int + beta1*age.sim[j]
+                                                  + beta2*age.old.sim[j]
+
+
+                                             ) )
+
+          }
+   
+}
+",fill = TRUE)
+sink()
+results.df <- data.frame(
+  pmdi = pmdi.vars,
+  DIC = NA
+)
+
+models <- list()
+
+for(i in seq_along(pmdi.vars)){
+  
+  v <- pmdi.vars[i]
+  
+  cat("\nFitting", v, "\n")
+  
+  jags.data <- list(
+    h = h,
+    ch = ch,
+    f = f,
+    nind = nrow(ch),
+    ageclass = age.sc,
+    age.old = age.old,   # age.old for knot = 9
+    pmdi = pmdi.list[[v]],
+    age.sim = age.sim,
+    age.old.sim = age.old.sim
+  )
+  
+  mod <- jagsUI(
+    jags.data,
+    inits,
+    parameters,
+    "model2.jags",
+    n.chains = nc,
+    n.thin = nt,
+    n.iter = ni,
+    n.burnin = nb,
+    parallel = TRUE
+  )
+  
+  models[[v]] <- mod
+  
+  results.df$DIC[i] <- mod$DIC
+}
+
+
+

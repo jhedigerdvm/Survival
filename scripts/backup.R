@@ -48,11 +48,11 @@ nvalues <- length(age.sim)
 
 #create age.old list
 age.old.list <- lapply(
-  6:11, #changed from 7:13, we are interested in identifying the onset of senescence
+  5:11, #changed from 7:13, we are interested in identifying the onset of senescence
   function(k) pmax(age.raw - k, 0)
 )
 
-names(age.old.list) <- paste0("knot_", 6:11) #changed from 7:13
+names(age.old.list) <- paste0("knot_", 5:11) #changed from 7:13
 
 
 #create ageclasses
@@ -224,142 +224,170 @@ for (i in 1:nind){
 sink()
 
 
-#bundle data
-jags.data <- list(
-  h = h,
-  ch = ch,
-  f = f,
-  nind = nrow(ch),
-  age = age.raw,
-  age.old = age.old.list$knot_6
-)
-
-# Call JAGS from R 
-mod6 <- jagsUI(
-  jags.data,
-  inits,
-  parameters,
-  "model.jags",
-  n.chains = nc,
-  n.thin = nt,
-  n.iter = ni,
-  n.burnin = nb,
-  parallel = TRUE
-)
-
-print(mod6)
-MCMCtrace(mod6)
-
-
-
-#bundle data
-    jags.data <- list(
-      h = h,
-      ch = ch,
-      f = f,
-      nind = nrow(ch),
-      age = age.raw,
-      age.old = age.old.list$knot_7
-    )
-
-# Call JAGS from R 
-    mod7 <- jagsUI(
-      jags.data,
-      inits,
-      parameters,
-      "model.jags",
-      n.chains = nc,
-      n.thin = nt,
-      n.iter = ni,
-      n.burnin = nb,
-      parallel = TRUE
-    )
-
-    print(mod7)
-    MCMCtrace(mod7)
-
-    
-#bundle data
-    jags.data <- list(
-      h = h,
-      ch = ch,
-      f = f,
-      nind = nrow(ch),
-      age = age.raw,
-      age.old = age.old.list$knot_8
-    )
-    
-# Call JAGS from R 
-    mod8 <- jagsUI(
-      jags.data,
-      inits,
-      parameters,
-      "model.jags",
-      n.chains = nc,
-      n.thin = nt,
-      n.iter = ni,
-      n.burnin = nb,
-      parallel = TRUE
-    )
-    
-    print(mod8)
-    MCMCtrace(mod8)
-
-    
-#bundle data
-    jags.data <- list(
-      h = h,
-      ch = ch,
-      f = f,
-      nind = nrow(ch),
-      age = age.raw,
-      age.old = age.old.list$knot_9
-    )
-    
-# Call JAGS from R 
-    mod9 <- jagsUI(
-      jags.data,
-      inits,
-      parameters,
-      "model.jags",
-      n.chains = nc,
-      n.thin = nt,
-      n.iter = ni,
-      n.burnin = nb,
-      parallel = TRUE
-    )
-    
-    print(mod9)
-    MCMCtrace(mod9)
-  
-    
-    
-#bundle data
-    jags.data <- list(
-      h = h,
-      ch = ch,
-      f = f,
-      nind = nrow(ch),
-      age = age.raw,
-      age.old = age.old.list$knot_10
-    )
-    
-# Call JAGS from R 
-    mod10 <- jagsUI(
-      jags.data,
-      inits,
-      parameters,
-      "model.jags",
-      n.chains = nc,
-      n.thin = nt,
-      n.iter = ni,
-      n.burnin = nb,
-      parallel = TRUE
-    )
-    
-    print(mod10)
-    MCMCtrace(mod10)
+# 
+# #bundle data
+# jags.data <- list(
+#   h = h,
+#   ch = ch,
+#   f = f,
+#   nind = nrow(ch),
+#   age = age.raw,
+#   age.old = age.old.list$knot_5
+# )
+# 
+# # Call JAGS from R 
+# mod5 <- jagsUI(
+#   jags.data,
+#   inits,
+#   parameters,
+#   "model.jags",
+#   n.chains = nc,
+#   n.thin = nt,
+#   n.iter = ni,
+#   n.burnin = nb,
+#   parallel = TRUE
+# )
+# 
+# print(mod5)
+# MCMCtrace(mod5)
+# 
+# 
+# #bundle data
+# jags.data <- list(
+#   h = h,
+#   ch = ch,
+#   f = f,
+#   nind = nrow(ch),
+#   age = age.raw,
+#   age.old = age.old.list$knot_6
+# )
+# 
+# # Call JAGS from R 
+# mod6 <- jagsUI(
+#   jags.data,
+#   inits,
+#   parameters,
+#   "model.jags",
+#   n.chains = nc,
+#   n.thin = nt,
+#   n.iter = ni,
+#   n.burnin = nb,
+#   parallel = TRUE
+# )
+# 
+# print(mod6)
+# MCMCtrace(mod6)
+# 
+# 
+# 
+# #bundle data
+#     jags.data <- list(
+#       h = h,
+#       ch = ch,
+#       f = f,
+#       nind = nrow(ch),
+#       age = age.raw,
+#       age.old = age.old.list$knot_7
+#     )
+# 
+# # Call JAGS from R 
+#     mod7 <- jagsUI(
+#       jags.data,
+#       inits,
+#       parameters,
+#       "model.jags",
+#       n.chains = nc,
+#       n.thin = nt,
+#       n.iter = ni,
+#       n.burnin = nb,
+#       parallel = TRUE
+#     )
+# 
+#     print(mod7)
+#     MCMCtrace(mod7)
+# 
 #     
+# #bundle data
+#     jags.data <- list(
+#       h = h,
+#       ch = ch,
+#       f = f,
+#       nind = nrow(ch),
+#       age = age.raw,
+#       age.old = age.old.list$knot_8
+#     )
+#     
+# # Call JAGS from R 
+#     mod8 <- jagsUI(
+#       jags.data,
+#       inits,
+#       parameters,
+#       "model.jags",
+#       n.chains = nc,
+#       n.thin = nt,
+#       n.iter = ni,
+#       n.burnin = nb,
+#       parallel = TRUE
+#     )
+#     
+#     print(mod8)
+#     MCMCtrace(mod8)
+# 
+#     
+# #bundle data
+#     jags.data <- list(
+#       h = h,
+#       ch = ch,
+#       f = f,
+#       nind = nrow(ch),
+#       age = age.raw,
+#       age.old = age.old.list$knot_9
+#     )
+#     
+# # Call JAGS from R 
+#     mod9 <- jagsUI(
+#       jags.data,
+#       inits,
+#       parameters,
+#       "model.jags",
+#       n.chains = nc,
+#       n.thin = nt,
+#       n.iter = ni,
+#       n.burnin = nb,
+#       parallel = TRUE
+#     )
+#     
+#     print(mod9)
+#     MCMCtrace(mod9)
+#   
+#     
+# #Knot 10     
+# #bundle data
+#     jags.data <- list(
+#       h = h,
+#       ch = ch,
+#       f = f,
+#       nind = nrow(ch),
+#       age = age.raw,
+#       age.old = age.old.list$knot_10
+#     )
+#     
+# # Call JAGS from R 
+#     mod10 <- jagsUI(
+#       jags.data,
+#       inits,
+#       parameters,
+#       "model.jags",
+#       n.chains = nc,
+#       n.thin = nt,
+#       n.iter = ni,
+#       n.burnin = nb,
+#       parallel = TRUE
+#     )
+#     
+#     print(mod10)
+#     MCMCtrace(mod10)
+# #     
 #knot 11
 #bundle data
     jags.data <- list(
@@ -386,114 +414,12 @@ MCMCtrace(mod6)
 
     print(mod11)
     MCMCtrace(mod11)
-#     
-#     
-# #bundle data
-#     jags.data <- list(
-#       h = h,
-#       ch = ch,
-#       f = f,
-#       nind = nrow(ch),
-#       age = age.raw,
-#       age.old = age.old.list$knot_12
-#     )
-#     
-# # Call JAGS from R 
-#     mod12 <- jagsUI(
-#       jags.data,
-#       inits,
-#       parameters,
-#       "model.jags",
-#       n.chains = nc,
-#       n.thin = nt,
-#       n.iter = ni,
-#       n.burnin = nb,
-#       parallel = TRUE
-#     )
-#     
-#     print(mod12)
-#     MCMCtrace(mod12)
-#     
-# #bundle data
-#     jags.data <- list(
-#       h = h,
-#       ch = ch,
-#       f = f,
-#       nind = nrow(ch),
-#       age = age.raw,
-#       age.old = age.old.list$knot_13
-#     )
-#     
-# # Call JAGS from R 
-#     mod13 <- jagsUI(
-#       jags.data,
-#       inits,
-#       parameters,
-#       "model.jags",
-#       n.chains = nc,
-#       n.thin = nt,
-#       n.iter = ni,
-#       n.burnin = nb,
-#       parallel = TRUE
-#     )
-#     
-#     print(mod13)
-#     MCMCtrace(mod13)
-# # 
-# #start loop for knot points
-# for(k in 7:13){#
-# 
-#   cat("\nFitting knot =", k, "\n")
-# 
-#   age.old <- age.old.list[[paste0("knot_", k)]]
-# 
-#   #bundle data
-#     jags.data <- list(
-#       h = h,
-#       ch = ch,
-#       f = f,
-#       nind = nrow(ch),
-#       age = age.raw,
-#       age.old = age.old
-#     )
-# 
-#   # Call JAGS from R (BRT 3 min)
-#     mod <- jagsUI(
-#       jags.data,
-#       inits,
-#       parameters,
-#       "model.jags",
-#       n.chains = nc,
-#       n.thin = nt,
-#       n.iter = ni,
-#       n.burnin = nb,
-#       parallel = TRUE
-#     )
-# 
-#     print(mod)
-#     MCMCtrace(mod)
-# 
-# #paste models into list
-#     models[[paste0("knot_",k)]] <- mod
-#     dic.df$DIC[dic.df$knot == k] <- mod$DIC
-#     dic.df$pD[dic.df$knot == k] <- mod$pD
-#     dic.df$deviance[dic.df$knot == k] <- mod$mean$deviance
-#     
-# 
-# }
-# 
-# #review results from competing models to identify senescence
-# dic.df$deltaDIC <- dic.df$DIC - min(dic.df$DIC, na.rm = T)
-# 
-# dic.df
-# write.csv(dic.df, './output/knotpoints_dic.csv')
-# 
-# model_knot9 <- write.csv(models$knot_9$summary, './output/knot9output.csv' )
 
     
     
 #store models for different knot points
 mods <- list(
+  mod5 = mod5,
   mod6 = mod6,
   mod7 = mod7,
   mod8 = mod8,
@@ -503,7 +429,7 @@ mods <- list(
 )
 
 dic.df <- data.frame(
-  knot = 6:11,
+  knot = 5:11,
   pD = sapply(mods, function(x) x$pD),
   Deviance = sapply(mods, function(x) x$mean$deviance),
   DIC = sapply(mods, function(x) x$DIC)
@@ -514,10 +440,11 @@ dic.df$deltaDIC <- dic.df$DIC - min(dic.df$DIC)
 dic.df <- dic.df[order(dic.df$DIC), ]
 
 dic.df
+write.csv(dic.df, './output/knotpointDIC.csv')
 
 # # #---- Piece-wise regression for top age model ----
 
-#keep simulated age.old to 9 
+#keep simulated age.old to 6 
 age.old <- age.old.list$knot_6
 age.old.sim <- pmax(age.sim - 6, 0) #knot point of 9 from previous model selection
 
@@ -632,7 +559,137 @@ print(mod6)
 MCMCtrace(mod6)
 
 
-
+# # #---- Piece-wise regression  age model with random effect of year ----
+# 
+# #keep simulated age.old to 6 
+# age.old <- age.old.list$knot_6
+# age.old.sim <- pmax(age.sim - 6, 0) #knot point of 9 from previous model selection
+# 
+# 
+# # Initial values
+# inits <- function(){list(
+#   int = rnorm(1,0,1),
+#   z = z.init,
+#   beta1 = rnorm(1,0,1),
+#   beta2= rnorm(1,0,1)#,
+#   #eps.year = c(NA, rnorm(14,0,1))
+# )
+# }
+# 
+# #Parameters to monitor
+# parameters <- c('int',
+#                 'beta1',
+#                 'beta2',
+#                 'phi.age',
+#                 'eps.year')
+# 
+# # MCMC settings
+# ni <- 8000
+# nt <- 10
+# nb <- 5000
+# nc <- 3
+# 
+# # Specify model in JAGS language
+# set.seed(100)
+# sink("model.jags")
+# cat("
+# model {
+# 
+# #prior for recapture prob
+# p ~ dbeta(1, 1)
+# 
+# 
+# #priors
+#   int ~ dnorm(0, 0.001)
+#   eps.year[1] <- 0
+#   
+#   beta1 ~ dnorm(0, 0.001) #age
+#   beta2 ~ dnorm(0,0.001) #age.old
+# 
+#   tau <- 1/(sigma*sigma)
+#   sigma ~ dunif(0,100)
+#   
+#   for (u in 2:15){
+#     eps.year[u] ~ dnorm(0,eps.tau)
+#   }
+# 
+#   eps.tau <- 1/(eps.sigma*eps.sigma)
+#   eps.sigma ~ dunif(0,100)
+#   
+# 
+# 
+# # Likelihood
+# for (i in 1:nind){
+#    # Define latent state at first capture, we know for sure the animal is alive
+#       z[i,f[i]] <- 1
+# 
+#       for (t in (f[i]+1):h[i]){
+#         # State process
+#             z[i,t] ~ dbern(mu1[i,t])
+#             mu1[i,t] <- phi[i,t-1] * z[i,t-1]
+#             logit(phi[i,t-1]) <- int + beta1*age[ i , t-1 ]
+#                                   + beta2*age.old[ i , t-1 ]
+#                                   + eps.year[capyear[i]]
+# 
+# 
+# 
+#           # Observation process
+#             ch[i,t] ~ dbern(mu2[i,t])
+#             mu2[i,t] <- p * z[i,t]
+# 
+# 
+# 
+#       } #t
+#    } #i
+# 
+#    #derived parameters
+#       for (j in 1:14) { #simulated age
+#             phi.age[j] <- exp( int + beta1*age.sim[j]
+#                                       + beta2*age.old.sim[j]
+#                                       ) /
+#                                (1 + exp( int + beta1*age.sim[j]
+#                                                   + beta2*age.old.sim[j]
+#                                              ) )
+# 
+#     }
+#     
+# 
+# }
+# ",fill = TRUE)
+# sink()
+# 
+# 
+# #bundle data
+# jags.data <- list(
+#   h = h,
+#   ch = ch,
+#   f = f,
+#   nind = nrow(ch),
+#   age = age.raw,
+#   age.old = age.old.list$knot_6,
+#   age.sim = age.sim,
+#   age.old.sim = age.old.sim,
+#   capyear = capyear
+# )
+# 
+# # Call JAGS from R 
+# mod6capyear <- jagsUI(
+#   jags.data,
+#   inits,
+#   parameters,
+#   "model.jags",
+#   n.chains = nc,
+#   n.thin = nt,
+#   n.iter = ni,
+#   n.burnin = nb,
+#   parallel = TRUE
+# )
+# 
+# print(mod6capyear)
+# MCMCtrace(mod6)
+# 
+# 
+#
 #create a tibble of the posterior draws
 gather <- mod6 %>%
   spread_draws(phi.age[age])
@@ -676,9 +733,9 @@ phi.plot
 
 #---- Model_pmdi: piece-wise linear regression analysis with a single knot point, PMDI    ----
 
-#keep simulated age.old to 9 
+#keep simulated age.old to 6 
 age.old <- age.old.list$knot_6
-age.old.sim <- pmax(age.sim - 6, 0) #knot point of 9 from previous model selection
+# age.old.sim <- pmax(age.sim - 6, 0) #knot point of 9 from previous model selection
 
 # Initial values
 inits <- function(){list(
@@ -692,7 +749,7 @@ inits <- function(){list(
 }
 
 #Parameters to monitor
-parameters <- c('int', 'beta1', 'beta2', 'beta3', 'phi.age')
+parameters <- c('int', 'beta1', 'beta2', 'beta3')
 
 # MCMC settings
 ni <- 8000
@@ -717,14 +774,7 @@ p ~ dbeta(1, 1)
   beta1 ~ dnorm(0, 0.01) #age
   beta2 ~ dnorm(0,0.01) #age.old
   beta3 ~ dnorm(0,0.001)
-  
-  # for (u in 2:16){
-  #   eps.year[u] ~ dnorm(0,eps.tau)
-  # }
-  # 
-  # eps.tau <- 1/(eps.sigma*eps.sigma)
-  # eps.sigma ~ dunif(0,100)
-  
+
 
   tau <- 1/(sigma*sigma)
   sigma ~ dunif(0,100)
@@ -742,7 +792,6 @@ for (i in 1:nind){
             logit(phi[i,t-1]) <- int + beta1*age[ i , t-1 ]   #age
                                   + beta2*age.old[ i , t-1 ]
                                   + beta3*drought[i,t-1]
-                                  #+ eps.year[capyear[i, t-1]]
 
 
           # Observation process
@@ -756,170 +805,138 @@ for (i in 1:nind){
 
    #derived parameters
    
-    for (j in 1:15) { #simulated age
-            phi.age[j] <- exp( int + beta1*age.sim[j]
-                                      + beta2*age.old.sim[j]
-                                      ) /
-                               (1 + exp( int + beta1*age.sim[j]
-                                                  + beta2*age.old.sim[j]
-                                                 ) )
-
-          }
-   
 }
 ",fill = TRUE)
 sink()
-
 # 
-# #create dataframe to hold pmdi data
-# results.df <- data.frame(
-#   pmdi = pmdi.vars,
-#   DIC = NA
-# )
+# #bundle annual pmdi data
+#   jags.data <- list(
+#     h = h,
+#     ch = ch,
+#     f = f,
+#     nind = nrow(ch),
+#     age = age.raw,
+#     age.old = age.old,   # age.old for knot = 6
+#     drought = pmdi.list$pmdi_annual_sc#,
+#     # age.sim = age.sim,
+#     # age.old.sim = age.old.sim
+#     # capyear = capyear
+#   )
+#   
+#   mod_annual <- jagsUI(
+#     jags.data,
+#     inits,
+#     parameters,
+#     "model_pmdi.jags",
+#     n.chains = nc,
+#     n.thin = nt,
+#     n.iter = ni,
+#     n.burnin = nb,
+#     parallel = TRUE
+#   )
+#   
+#   print(mod_annual)
 # 
-# models <- list()
 # 
-# #run for loop with all pmdi variables
-# for(i in seq_along(pmdi.vars)){
+# #bundle spring pmdi data
+#     jags.data <- list(
+#       h = h,
+#       ch = ch,
+#       f = f,
+#       nind = nrow(ch),
+#       age = age.raw,
+#       age.old = age.old,   # age.old for knot = 9
+#       drought = pmdi.list$pmdi_spring_sc
+#     )
+#     
+#     mod_spring <- jagsUI(
+#       jags.data,
+#       inits,
+#       parameters,
+#       "model_pmdi.jags",
+#       n.chains = nc,
+#       n.thin = nt,
+#       n.iter = ni,
+#       n.burnin = nb,
+#       parallel = TRUE
+#     )
+#     print(mod_spring)
 # 
-#   v <- pmdi.vars[i]
+# #bundle summer data
+#     jags.data <- list(
+#       h = h,
+#       ch = ch,
+#       f = f,
+#       nind = nrow(ch),
+#       age = age.raw,
+#       age.old = age.old,   
+#       drought = pmdi.list$pmdi_summer_sc
+#     )
+#     
+#     mod_summer <- jagsUI(
+#       jags.data,
+#       inits,
+#       parameters,
+#       "model_pmdi.jags",
+#       n.chains = nc,
+#       n.thin = nt,
+#       n.iter = ni,
+#       n.burnin = nb,
+#       parallel = TRUE
+#     )
+#     print(mod_summer)
 # 
-#   cat("\nFitting", v, "\n")
+# #bundle fall data
+#     jags.data <- list(
+#       h = h,
+#       ch = ch,
+#       f = f,
+#       nind = nrow(ch),
+#       age = age.raw,
+#       age.old = age.old,   
+#       drought = pmdi.list$pmdi_fall_sc
+#     )
+#     
+#     mod_fall <- jagsUI(
+#       jags.data,
+#       inits,
+#       parameters,
+#       "model_pmdi.jags",
+#       n.chains = nc,
+#       n.thin = nt,
+#       n.iter = 8000,
+#       n.burnin = 5000,
+#       parallel = TRUE
+#     )
+#     print(mod_fall)
+#     MCMCtrace(mod_fall)
 
-  jags.data <- list(
-    h = h,
-    ch = ch,
-    f = f,
-    nind = nrow(ch),
-    age = age.raw,
-    age.old = age.old,   # age.old for knot = 9
-    drought = pmdi.list$pmdi_annual_sc,
-    age.sim = age.sim,
-    age.old.sim = age.old.sim
-    # capyear = capyear
-  )
-  
-  mod_annual <- jagsUI(
-    jags.data,
-    inits,
-    parameters,
-    "model_pmdi.jags",
-    n.chains = nc,
-    n.thin = nt,
-    n.iter = ni,
-    n.burnin = nb,
-    parallel = TRUE
-  )
-  
-print(mod_annual)
+#bundle winter data
+    jags.data <- list(
+      h = h,
+      ch = ch,
+      f = f,
+      nind = nrow(ch),
+      age = age.raw,
+      age.old = age.old,   # age.old for knot = 9
+      drought = pmdi.list$pmdi_winter_sc
+    )
+    
+    mod_winter <- jagsUI(
+      jags.data,
+      inits,
+      parameters,
+      "model_pmdi.jags",
+      n.chains = nc,
+      n.thin = nt,
+      n.iter = ni,
+      n.burnin = nb,
+      parallel = TRUE
+    )
+    print(mod_winter)
+    MCMCtrace(mod_winter)
 
-jags.data <- list(
-  h = h,
-  ch = ch,
-  f = f,
-  nind = nrow(ch),
-  age = age.raw,
-  age.old = age.old,   # age.old for knot = 9
-  drought = pmdi.list$pmdi_spring_sc,
-  age.sim = age.sim,
-  age.old.sim = age.old.sim
-  # capyear = capyear
-)
-
-mod_spring <- jagsUI(
-  jags.data,
-  inits,
-  parameters,
-  "model_pmdi.jags",
-  n.chains = nc,
-  n.thin = nt,
-  n.iter = ni,
-  n.burnin = nb,
-  parallel = TRUE
-)
-print(mod_spring)
-
-jags.data <- list(
-  h = h,
-  ch = ch,
-  f = f,
-  nind = nrow(ch),
-  age = age.raw,
-  age.old = age.old,   # age.old for knot = 9
-  drought = pmdi.list$pmdi_summer_sc,
-  age.sim = age.sim,
-  age.old.sim = age.old.sim
-  # capyear = capyear
-)
-
-mod_summer <- jagsUI(
-  jags.data,
-  inits,
-  parameters,
-  "model_pmdi.jags",
-  n.chains = nc,
-  n.thin = nt,
-  n.iter = ni,
-  n.burnin = nb,
-  parallel = TRUE
-)
-print(mod_summer)
-
-jags.data <- list(
-  h = h,
-  ch = ch,
-  f = f,
-  nind = nrow(ch),
-  age = age.raw,
-  age.old = age.old,   # age.old for knot = 9
-  drought = pmdi.list$pmdi_fall_sc,
-  age.sim = age.sim,
-  age.old.sim = age.old.sim
-  # capyear = capyear
-)
-
-mod_fall <- jagsUI(
-  jags.data,
-  inits,
-  parameters,
-  "model_pmdi.jags",
-  n.chains = nc,
-  n.thin = nt,
-  n.iter = 8000,
-  n.burnin = 5000,
-  parallel = TRUE
-)
-print(mod_fall)
-MCMCtrace(mod_fall)
-
-
-jags.data <- list(
-  h = h,
-  ch = ch,
-  f = f,
-  nind = nrow(ch),
-  age = age.raw,
-  age.old = age.old,   # age.old for knot = 9
-  drought = pmdi.list$pmdi_winter_sc,
-  age.sim = age.sim,
-  age.old.sim = age.old.sim
-  # capyear = capyear
-)
-
-mod_winter <- jagsUI(
-  jags.data,
-  inits,
-  parameters,
-  "model_pmdi.jags",
-  n.chains = nc,
-  n.thin = nt,
-  n.iter = ni,
-  n.burnin = nb,
-  parallel = TRUE
-)
-print(mod_winter)
-MCMCtrace(mod_winter)
-
+#compile DIC results from pmdi models
 results.dic.pmdi <- data.frame(
   pmdi = c(
     "annual",
@@ -957,73 +974,51 @@ results.dic.pmdi <- results.dic.pmdi[order(results.dic.pmdi$DIC), ]
 
 results.dic.pmdi
 
+write.csv(results.dic.pmdi, './output/pmdi_dic.csv') #annual and spring are competing models
 
-results.df$deltaDIC <-
-  results.df$DIC -
-  min(results.df$DIC)
-
-results.df <-
-  results.df[order(results.df$deltaDIC), ]
-
-results.df
-
-write.csv(results.df, './output/pmdi_dic.csv') #annual and spring are competing models
-
-#   models[[v]] <- mod
-# 
-#   results.df$DIC[i] <- mod$DIC
-# }
-# 
-# #review results from competing models to identify pmdi
-# results.df$deltaDIC <- results.df$DIC - min(results.df$DIC, na.rm = T)
-# 
-# results.df
-# 
 
 # #---- Model PMDI Plots ----
-print(mod_annual)
-print(mod_spring)
-
-#create a tibble of the posterior draws
-gather <- mod_spring %>%
-  spread_draws(phi.age[age])
-
-
-phi.plot<- gather %>%
-  ggplot(aes(x=age, y=phi.age)) +
-  stat_lineribbon(.width = 0.95)+
-  geom_vline(xintercept = 9, linetype = "dashed", color = "red", linewidth = 1)+
-  guides(fill = "none")+ #remove legend from ribbon
-  scale_fill_viridis_d(option = 'turbo', alpha = .2 ) + #this allowed me to opacify the ribbon but not the line
-  scale_color_viridis_d(option = 'turbo')+ #color of line but no opacification
-  labs(x = "Age", y = "Annual Survival Probability", title = "")+
-  scale_x_continuous(breaks = c(1, 3, 5, 7, 9, 11, 13)) +
-  theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.border = element_blank(),
-        axis.line = element_line(),
-        legend.position = "inside",
-        legend.position.inside = c(0.9,0.8),          # x, y inside the plot area
-        legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
-        legend.text = element_text(size = 16),
-        legend.title = element_blank(),
-        plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
-        axis.title = element_text(face = 'bold',size = 18, hjust = 0.5),
-        axis.text = element_text(face='bold',size = 16),
-        # axis.text.x = element_text(angle = 45, hjust = 1),
-        panel.background = element_rect(fill='transparent'), #transparent panel bg
-        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
-phi.plot
-
-
-
-
+# 
+# #create a tibble of the posterior draws
+# gather <- mod_summer %>%
+#   spread_draws(phi.age[age])
+# 
+# 
+# phi.plot<- gather %>%
+#   ggplot(aes(x=age, y=phi.age)) +
+#   stat_lineribbon(.width = 0.95)+
+#   geom_vline(xintercept = 9, linetype = "dashed", color = "red", linewidth = 1)+
+#   guides(fill = "none")+ #remove legend from ribbon
+#   scale_fill_viridis_d(option = 'turbo', alpha = .2 ) + #this allowed me to opacify the ribbon but not the line
+#   scale_color_viridis_d(option = 'turbo')+ #color of line but no opacification
+#   labs(x = "Age", y = "Annual Survival Probability", title = "")+
+#   scale_x_continuous(breaks = c(1, 3, 5, 7, 9, 11, 13)) +
+#   theme_bw() +
+#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+#         panel.border = element_blank(),
+#         axis.line = element_line(),
+#         legend.position = "inside",
+#         legend.position.inside = c(0.9,0.8),          # x, y inside the plot area
+#         legend.justification = c("right", "bottom"),        # anchor point of the legend box        legend.title = element_blank(),
+#         legend.text = element_text(size = 16),
+#         legend.title = element_blank(),
+#         plot.title = element_text(face = 'bold', size = 32, hjust = 0.5),
+#         axis.title = element_text(face = 'bold',size = 18, hjust = 0.5),
+#         axis.text = element_text(face='bold',size = 16),
+#         # axis.text.x = element_text(angle = 45, hjust = 1),
+#         panel.background = element_rect(fill='transparent'), #transparent panel bg
+#         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+# phi.plot
+# 
+# 
+# 
+# 
 
 #---- Full model: age + drought + density     ----
 
 # Specify model in JAGS language
 set.seed(100)
-sink("model2.jags")
+sink("model_full.jags")
 cat("
 model {
 
@@ -1102,8 +1097,8 @@ nc <- 3
     f = f,
     nind = nrow(ch),
     age = age.raw,
-    age.old = age.old,   # age.old for knot = 9
-    drought = pmdi.list$pmdi_spring_sc,
+    age.old = age.old.list$knot_6,
+    drought = pmdi.list$pmdi_summer_sc,
     density = density.sc
   )
   
@@ -1111,7 +1106,7 @@ nc <- 3
     jags.data,
     inits,
     parameters,
-    "model2.jags",
+    "model_full.jags",
     n.chains = nc,
     n.thin = nt,
     n.iter = ni,
@@ -1120,6 +1115,7 @@ nc <- 3
   )
   
 print(model_full)
+MCMCtrace(model_full)
   
 #---- Model: age + drought     ----
   
@@ -1201,7 +1197,7 @@ for (i in 1:nind){
     nind = nrow(ch),
     age = age.raw,
     age.old = age.old,   # age.old for knot = 9
-    drought = pmdi.list$pmdi_spring_sc#,
+    drought = pmdi.list$pmdi_summer_sc#,
     # age.sim = age.sim,
     # age.old.sim = age.old.sim,
     # density = density.sc
@@ -1495,7 +1491,7 @@ for (i in 1:nind){
     f = f,
     nind = nrow(ch),
     
-    drought = pmdi.list$pmdi_spring_sc
+    drought = pmdi.list$pmdi_summer_sc
   )
   
   model_drought <- jagsUI( #full model
@@ -1705,6 +1701,24 @@ for (i in 1:nind){
       "density",
       "null"
     ),
+    pD = c(
+      model_full$pD,
+      model_agedrought$pD,
+      model_agedensity$pD,
+      model_age$pD,
+      model_drought$pD,
+      model_density$pD,
+      model_null$pD
+    ),
+    Deviance = c(
+      model_full$mean$deviance,
+      model_agedrought$mean$deviance,
+      model_agedensity$mean$deviance,
+      model_age$mean$deviance,
+      model_drought$mean$deviance,
+      model_density$mean$deviance,
+      model_null$mean$deviance
+    ),
     DIC = c(
       model_full$DIC,
       model_agedrought$DIC,
@@ -1895,8 +1909,7 @@ mod <- jagsUI(
 
 print(mod)
 
-# ---- Top Model: age + age.old ---- 
-          # age + density was competitive 
+# ---- Top Model: age + age.old + density---- 
 
 # Specify model in JAGS language
 set.seed(100)
@@ -1910,9 +1923,9 @@ p ~ dbeta(1, 1)
 
 #priors
   int ~ dnorm(0, 0.001)
-
-  beta1 ~ dnorm(0, 0.01) #age
-  beta2 ~ dnorm(0,0.001) #age.old
+  beta1 ~ dnorm(0, 0.001) #age
+  beta2 ~ dnorm(0, 0.001) #age.old
+  beta3 ~ dnorm(0, 0.001)
   
   
   tau <- 1/(sigma*sigma)
@@ -1929,7 +1942,8 @@ for (i in 1:nind){
             z[i,t] ~ dbern(mu1[i,t]) #toss of a coin whether individual is alive or not detected
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]  #t-1 because we are looking ahead to see if they survived from 1 to 2 based upon them being alive at 2
             logit(phi[i,t-1]) <- int + beta1*age[ i , t-1 ]   #age
-                                 + beta2*age.old[ i , t-1 ]
+                                 + beta2*age.old[ i , t-1 ] #age old
+                                 + beta3*density[i , t-1 ]  #density
                                   
 
 
@@ -1944,7 +1958,7 @@ for (i in 1:nind){
 
    #derived parameters
    
-    for (j in 1:15) { #simulated age
+    for (j in 1:14) { #simulated age
             phi.age[j] <- exp( int + beta1*age.sim[j]
                                       + beta2*age.old.sim[j]
                                       ) /
@@ -1954,13 +1968,17 @@ for (i in 1:nind){
 
     }
     
-    phi.slope <- (phi.age[9] - phi.age[1]) / 9
-    phi.diff <- phi.age[9] - phi.age[1]
-    phi.mean <- (phi.age[1] +phi.age[2] +phi.age[3] +phi.age[4] +
-                phi.age[5] +phi.age[6] +phi.age[7]) / 7
-    
-    phi.9to10 <- phi.age[10] - phi.age[9]
-    phi.10to13 <- (phi.age[13] - phi.age[10] )/ 3
+    phi.slope.6to7 <- (phi.age[7] - phi.age[6]) 
+    phi.slope.7to8 <- (phi.age[8] - phi.age[7]) 
+    phi.slope.8to9 <- (phi.age[9] - phi.age[8])
+    phi.slope.9to14 <- (phi.age[14] - phi.age[9])/5
+
+    # phi.diff <- phi.age[9] - phi.age[1]
+    # phi.mean <- (phi.age[1] +phi.age[2] +phi.age[3] +phi.age[4] +
+    #             phi.age[5] +phi.age[6] +phi.age[7]) / 7
+    # 
+    # phi.9to10 <- phi.age[10] - phi.age[9]
+    # phi.10to13 <- (phi.age[13] - phi.age[10] )/ 3
    
 }
 ",fill = TRUE)
@@ -1977,8 +1995,8 @@ inits <- function(){list(
 }
 
 #Parameters to monitor
-parameters <- c('int', 'beta1', 'beta2', 'p', 'phi.slope', 
-                'phi.diff', 'phi.mean', 'phi.9to10', 'phi.10to13', 'phi.age')
+parameters <- c('int', 'beta1', 'beta2', 'beta3', 'p', 'phi.slope.6to7', 
+                'phi.slope.7to8', 'phi.slope.8to9', 'phi.slope.9to14', 'phi.age')
 
 # MCMC settings
 ni <- 5000
@@ -1996,11 +2014,12 @@ jags.data <- list(
   age = age.raw,
   age.old = age.old,   # age.old for knot = 9
   age.sim = age.sim,
-  age.old.sim = age.old.sim
+  age.old.sim = age.old.sim,
+  density = density.sc
   
 )
 
-model_age <- jagsUI( #full model
+model_top <- jagsUI( #full model
   jags.data,
   inits,
   parameters,
@@ -2012,12 +2031,12 @@ model_age <- jagsUI( #full model
   parallel = TRUE
 )
 
-print(model_age)  
-
+print(model_top)  
+write.csv(model_top$summary, './output/topmodelagedens.csv')
 # # #---- Top model plot ----
 
 #create a tibble of the posterior draws
-gather <- model_age %>%
+gather <- model_top %>%
   spread_draws(phi.age[age])
 
 
@@ -2025,7 +2044,7 @@ gather <- model_age %>%
 phi.plot<- gather %>%
   ggplot(aes(x=age, y=phi.age)) +
   stat_lineribbon(.width = 0.95)+
-  geom_vline(xintercept = 9, linetype = "dashed", color = "red", linewidth = 1)+
+  geom_vline(xintercept = 6, linetype = "dashed", color = "red", linewidth = 1)+
   guides(fill = "none")+ #remove legend from ribbon
   scale_fill_viridis_d(option = 'turbo', alpha = .2 ) + #this allowed me to opacify the ribbon but not the line
   scale_color_viridis_d(option = 'turbo')+ #color of line but no opacification
@@ -2047,6 +2066,7 @@ phi.plot<- gather %>%
         panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
 phi.plot
+ggsave('./figures/topmodelplot.png', phi.plot)
 
 
 # ---- summary stats ----

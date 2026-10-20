@@ -50,47 +50,47 @@ usa <- usa[!usa$NAME %in% c("Alaska", "Hawaii", "American Samoa",
 counties <- counties[counties$CNTY_NM %in% c("Dimmit","Webb")]#, 
 mapview(counties)
 
-yanas <- faith_shp[faith_shp$PASTURE %in% c("East Yana Pasture", "West Yana Pasture")]
+yanas <- faith_shp[faith_shp$PASTURE %in% c("East Yana Pasture")]#, "West Yana Pasture")]
 
 mapview(yanas)
 mapview(waterline)
 
 # Convert SpatVector to sf so we can create ESRI basemap
 yanas <- st_as_sf(yanas) #convert to dataframe
-dmp <- st_as_sf(dmp) #convert to dataframe
-dmp <- dmp[,-4] #remove unnec column so we can rbind
-dmp$PASTURE <- 'dmp' #rename pasture to dmp
-dmp <- st_transform(dmp, st_crs(yanas)) #need to be on same CRS to bind
-yanadmp <- rbind(yanas, dmp) #bind yana polygons with dmp polygons
+# dmp <- st_as_sf(dmp) #convert to dataframe
+# dmp <- dmp[,-4] #remove unnec column so we can rbind
+# dmp$PASTURE <- 'dmp' #rename pasture to dmp
+# dmp <- st_transform(dmp, st_crs(yanas)) #need to be on same CRS to bind
+# yanadmp <- rbind(yanas, dmp) #bind yana polygons with dmp polygons
 tx <- st_as_sf(tx) 
 faithperim <- st_as_sf(faithperim)
 feeders <- st_as_sf(feeders)
 
-
-feeders <- feeders %>% filter(PASTURE %in% c("E Yana", "W Yana", "DMP Pen 1",  "DMP Pen 2", "DMP Pen 3","DMP Pen 4"))
-unique(feeders$PASTURE)
-
-feeders1 <- feeders  %>% filter(PASTURE %in% c("E Yana", "W Yana", "DMP Pen 3","DMP Pen 4"))
+# 
+# feeders <- feeders %>% filter(PASTURE %in% c("E Yana", "W Yana", "DMP Pen 1",  "DMP Pen 2", "DMP Pen 3","DMP Pen 4"))
+# unique(feeders$PASTURE)
+# 
+# feeders1 <- feeders  %>% filter(PASTURE %in% c("E Yana", "W Yana", "DMP Pen 3","DMP Pen 4"))
 
 
 #let's plot this SpatVector
-usaplot<-ggplot() +
-  geom_spatvector(data = usa, size = 0.5, color = "black", fill = "white") +
-  geom_spatvector(
-    data = usa[usa$NAME == "Texas", ],
-    fill = "darkgrey",
-    color = "black"
-  )+
-  theme(
-    panel.background = element_rect(fill = NA, color = NA),
-    plot.background  = element_rect(fill = NA, color = NA),
-    panel.grid = element_blank(),
-    axis.text = element_blank(),
-    axis.ticks = element_blank(),
-    axis.title = element_blank()
-  )
-
-usaplot
+# usaplot<-ggplot() +
+#   geom_spatvector(data = usa, size = 0.5, color = "black", fill = "white") +
+#   geom_spatvector(
+#     data = usa[usa$NAME == "Texas", ],
+#     fill = "darkgrey",
+#     color = "black"
+#   )+
+#   theme(
+#     panel.background = element_rect(fill = NA, color = NA),
+#     plot.background  = element_rect(fill = NA, color = NA),
+#     panel.grid = element_blank(),
+#     axis.text = element_blank(),
+#     axis.ticks = element_blank(),
+#     axis.title = element_blank()
+#   )
+# 
+# usaplot
 # ggsave('./figures/usaplot.png', usaplot, width = 10, height = 5)
 
 ###############33
@@ -99,8 +99,8 @@ usaplot
 
 tx_plot<-
   ggplot() + 
-  geom_spatvector(data = tx, size = 0.5, color = "black", fill = "white") +
-  geom_spatvector(data = counties[counties$CNTY_NM == "Dimmit"], size = 0.5, color = "black", fill = "darkgrey") + #just dimmitt and webb
+  geom_spatvector(data = tx, size = 0.5, color = "black", fill = "transparent") +
+  geom_spatvector(data = counties[counties$CNTY_NM == "Dimmit"], size = 0.5, color = "black", fill = "red") + #just dimmitt and webb
   # geom_spatvector(data = box_sotex, size = 0.5, color = "red", fill = "transparent")+
   #geom_spatvector(data = faithperim, size = 0.5, color = "red", fill = "red") + 
   
@@ -115,35 +115,35 @@ tx_plot<-
 
 tx_plot
 
-# ggsave('./figures/txplot.png', tx_plot, width = 10, height = 10)
+ggsave('./figures/txplot.png', tx_plot)
 
 ################
 ##############
 ###############
-
-faith_shp
-
-county_plot<-
-  ggplot() + 
-  geom_spatvector(data = counties[counties$CNTY_NM == "Dimmit"], size = 0.5, color = "black", fill = "white") + #just dimmitt and webb
-  geom_spatvector(data =yanadmp, size = 0.5, color = "black", fill = "darkgrey") +
-  # geom_spatvector(data = box_sotex, size = 0.5, color = "red", fill = "transparent")+
-  #geom_spatvector(data = faithperim, size = 0.5, color = "red", fill = "red") + 
-  
-  theme(
-    panel.background = element_rect(fill = NA, color = NA),
-    plot.background  = element_rect(fill = NA, color = NA),
-    panel.grid = element_blank(),
-    axis.text = element_blank(),
-    axis.ticks = element_blank(),
-    axis.title = element_blank()
-  )
-
-county_plot
-
-# ggsave('./figures/txplot.png', tx_plot, width = 10, height = 10)
-
-################
+# 
+# faith_shp
+# 
+# county_plot<-
+#   ggplot() + 
+#   geom_spatvector(data = counties[counties$CNTY_NM == "Dimmit"], size = 0.5, color = "black", fill = "white") + #just dimmitt and webb
+#   geom_spatvector(data =yanadmp, size = 0.5, color = "black", fill = "darkgrey") +
+#   # geom_spatvector(data = box_sotex, size = 0.5, color = "red", fill = "transparent")+
+#   #geom_spatvector(data = faithperim, size = 0.5, color = "red", fill = "red") + 
+#   
+#   theme(
+#     panel.background = element_rect(fill = NA, color = NA),
+#     plot.background  = element_rect(fill = NA, color = NA),
+#     panel.grid = element_blank(),
+#     axis.text = element_blank(),
+#     axis.ticks = element_blank(),
+#     axis.title = element_blank()
+#   )
+# 
+# county_plot
+# 
+# # ggsave('./figures/txplot.png', tx_plot, width = 10, height = 10)
+# 
+# ################
 ##############
 ###############
 # 
@@ -256,20 +256,23 @@ county_plot
 
 ################3
 #################
-
+# ------ Yana Maps ---------###############
 # Convert to raster for plotting
-basemap <- get_tiles(yanadmp, provider = "Esri.WorldImagery", zoom = 15) #adjust zoom to 17 for high res
-basemap_masked <- mask(basemap, vect(yanadmp))
+basemap <- get_tiles(yanas, provider = "Esri.WorldImagery", zoom = 15) #adjust zoom to 17 for high res
+basemap_masked <- mask(basemap, vect(yanas))
+
+feeders <- feeders %>% filter(PASTURE == "E Yana") #filter to just east yana feeders
 
 yana<-ggplot() +
   layer_spatial(basemap_masked) +
-  geom_sf(data = yanadmp, aes(color = PASTURE), linewidth = 1.5, fill = NA, size = 6) +
-  scale_color_viridis_d(option = 'plasma',
-                        labels = c("DMP", "East Yana", "West Yana")
-  )+
-  coord_sf(xlim = c(1658000.33357406, 1675913.06965823), #st_bbox(yanadmp)[c("xmin", "xmax")],
-           ylim = c(13260966.6762228, 13270751.0856088), #st_bbox(yanadmp)[c("ymin", "ymax")],
-           expand = FALSE) +
+  geom_sf(data = yanas, linewidth = NA, fill = NA, size = 6) +#aes(color = PASTURE), 
+  geom_sf(data = feeders, shape = 21, size = 2, stroke = 1,  color = "black", fill = "white")+
+  # scale_color_viridis_d(option = 'plasma',
+  #                       labels = c("DMP", "East Yana", "West Yana")
+  # )+
+  # coord_sf(xlim = c(1658000.33357406, 1675913.06965823), #st_bbox(yanadmp)[c("xmin", "xmax")],
+  #          ylim = c(13260966.6762228, 13270751.0856088), #st_bbox(yanadmp)[c("ymin", "ymax")],
+  #          expand = FALSE) +
   theme(
     panel.background = element_rect(fill = NA, color = NA),
     plot.background  = element_rect(fill = NA, color = NA),
@@ -290,40 +293,42 @@ yana<-ggplot() +
     
   )+
   annotation_scale(style="bar",  #alternative style is "ticks"
-                   height=unit(.5,"cm"),
-                   pad_x = unit(4, "cm"),
-                   pad_y = unit(1, "cm"),
+                   height=unit(.2,"cm"),
+                   pad_x = unit(2.6, "cm"),
+                   pad_y = unit(1.3, "cm"),
                    text_cex = 1)+
   #Let's add the north arrow - adjust height and padding for your individual screen
   annotation_north_arrow(
-    height=unit(1.5, "cm"),
-    width=unit(1.2, "cm"),
-    pad_x = unit(1, "cm"),
-    pad_y = unit(1, "cm"))
+    height=unit(1, "cm"),
+    width=unit(1, "cm"),
+    pad_x = unit(2.6, "cm"),
+    pad_y = unit(7, "cm"))
 
 
 yana
 
+ggsave('./figures/eastyana.png', yana)
+
 
 inset<-ggdraw() +
-  draw_plot(yanafeeders) +
-  draw_plot(usaplot,
-            height = 0.25,
-            x = -.2, #you will have to play with these values a bit to get them right!
-            y = 0.75)+
+  draw_plot(yana) +
+  # draw_plot(usaplot,
+  #           height = 0.25,
+  #           x = -.2, #you will have to play with these values a bit to get them right!
+  #           y = 0.75)+
   draw_plot(tx_plot,
-            height = 0.25,
-            x = 0, #you will have to play with these values a bit to get them right!
-            y = 0.75)+
-  draw_plot(county_plot,
-            height = 0.25,
-            x = .2, #you will have to play with these values a bit to get them right!
-            y = 0.75)
+            height = 0.2,
+            x = .15, #you will have to play with these values a bit to get them right!
+            y = 0.57)
+  # draw_plot(county_plot,
+  #           height = 0.25,
+  #           x = .2, #you will have to play with these values a bit to get them right!
+  #           y = 0.75)
 
 inset
 
 
-ggsave('./figures/insetfaith.jpg', inset, width = 12, height = 10)
+ggsave('./figures/insetfaith.jpg', inset)
 
 
 # ggsave('./figures/yana.png', yana, width = 10, height = 5)

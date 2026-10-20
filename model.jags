@@ -39,15 +39,7 @@ for (i in 1:nind){
    } #i
 
    #derived parameters
-      for (j in 1:14) { #simulated age
-            phi.age[j] <- exp( int + beta1*age.sim[j]
-                                      + beta2*age.old.sim[j]
-                                      ) /
-                               (1 + exp( int + beta1*age.sim[j]
-                                                  + beta2*age.old.sim[j]
-                                             ) )
 
-    }
     
 
 }

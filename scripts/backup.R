@@ -13,50 +13,105 @@ library(viridis)
 library(here)
 
 # ---- Load data ----
-data <- read.csv('./cleaned/fawncaphx.csv', header = T)
+# data <- read.csv('./cleaned/fawncaphx.csv', header = T)
+# 
+# data <- data %>% filter(bs %in% "ey" & !birth_year == "2022")
+# write.csv(data, './cleaned/eydatawfawns.csv')
 
-data <- data %>% filter(bs %in% "ey" & !birth_year == "2022")
-write.csv(data, './cleaned/eydatawfawns.csv')
+data<- read.csv('./cleaned/eydatawfawns.csv', header = T)
+#remove individual 90-2015-0-560 because first and last capture occasions are the same
+data <- data %>%
+  filter(animal_id != "90-2015-0-560")
+
+#remove individuals with known fates to not confound senescence data
+    # data_clean <- data %>%
+    #   group_by(animal_id) %>%
+    #   filter(
+    #     !any(status %in% c(
+    #       "Harvested",
+    #       "Nat Mortality",
+    #       "Dead-Capture"
+    #     ))
+    #   ) %>%
+    #   ungroup()
+    # 
+    # removed_ids <- data %>%
+    #   group_by(animal_id) %>%
+    #   filter(any(status %in% c(
+    #     "Harvested",
+    #     "Nat Mortality",
+    #     "Dead-Capture"
+    #   ))) %>%
+    #   distinct(animal_id)
+    # 
+    # removed_ids #32 individuals removed
+
+    # data <- data_clean
 #take long form and convert into wide for CH matrix
 ch<- pivot_wider(data, names_from = 'cap_year', values_from = 'status_cam', id_cols = 'animal_id' )
 ch<-ch[,-1]
-ch<-as.matrix(ch)
-
+ch<-as.matrix(ch) #
+# 
 known.fate <- ch #known fate matrix with 2 indentifying deaths associated with capture or harvest
 
 #create capture history with just 1s and 0s, remove 'known fates'
-indices <- which(ch == 2, arr.ind = TRUE) #32 individuals with known fates 
-ch[indices] <- 1
+indices <- which(ch == 2, arr.ind = TRUE) #32 individuals with known fates
+# ch[indices] <- 1
 
 
 # Create vector with the occasion each indiv is marked
 get.first <- function(x) min(which(x!=0)) #x! identifies when x is not equal to zero
 f <- apply(ch, 1, get.first) 
 
-age.raw <- pivot_wider(
-  data,
-  names_from = cap_year,
-  values_from = age,
-  id_cols = animal_id
-)
-age.raw <- as.matrix(age.raw[,-1])
 
-age.sim <- seq(0.5, 14.5, by = 1) # updated from 15.5
+# create vector with last occasion for each individual, marked by 2, 16 for end of study
+get.last<- function(x) min(which(x>1))
+h <- apply(ch,1,get.last) #changed from known fate
+h <- replace(h, is.infinite(h), ncol(ch)) #change to equal number of columns/years
+h
+diff<- (f-h)  #remove any whose first capture was also their last, row 150 in ch
+sum(diff == 0)
 
-#age simulation
-nvalues <- length(age.sim)
+#Function for latent state
+z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
 
-#create age.old list
-age.old.list <- lapply(
-  5:11, #changed from 7:13, we are interested in identifying the onset of senescence
-  function(k) pmax(age.raw - k, 0)
-)
+for(i in 1:dim(z.init)[1]){
+  z.init[i, f[i]:h[i]] <- 1
+  z.init[i,f[i]] <- NA
+}
+# for(i in 1:dim(z.init)[1]){
+#   z.init[i, f[i]:h[i]] <- 1
+#   z.init[i,f[i]] <- NA
+# }
 
-names(age.old.list) <- paste0("knot_", 5:11) #changed from 7:13
 
 
-#create ageclasses
-data$ageclass <- data$age + 0.5 # 1 are fawns, 2 are yearlings, 3 and 2.5 yos
+
+#age data
+    age.raw <- pivot_wider(
+      data,
+      names_from = cap_year,
+      values_from = age,
+      id_cols = animal_id
+    )
+    age.raw <- as.matrix(age.raw[,-1])
+    
+    age.sim <- seq(0.5, 15.5, by = 1) # updated from 15.5
+    
+    #age simulation
+    nvalues <- length(age.sim)
+    
+    #create age.old list
+    age.old.list <- lapply(
+      6:12, #changed from 7:13, we are interested in identifying the onset of senescence
+      function(k) pmax(age.raw - k, 0)
+    )
+    
+    names(age.old.list) <- paste0("knot_", 6:12) #changed from 7:13
+    age.old.list$knot_6
+    
+    #create ageclasses
+    data$ageclass <- data$age + 0.5 # 1 are fawns, 2 are yearlings, 3 and 2.5 yos
 
 #create birth year vector
 birthyear <- as.numeric(as.factor(data$birth_year))
@@ -66,75 +121,59 @@ capyear <- f
 
 
 #create pmdi data
-pmdi.vars <- c(     #create list of pmdi variables
-  "pmdi_annual",
-  "pmdi_spring",
-  "pmdi_summer",
-  "pmdi_fall",
-  "pmdi_winter"
-)
-
-pmdi.stats <- data.frame(   #create dataframe to store means and SD of pmdi variables
-  variable = pmdi.vars,
-  mean = NA,
-  sd = NA
-)
-
-for(i in seq_along(pmdi.vars)){ #for loop to scale and center pmdi values and create new SC columns
-  
-  v <- pmdi.vars[i]
-  
-  mu <- mean(data[[v]], na.rm = TRUE)
-  sig <- sd(data[[v]], na.rm = TRUE)
-  
-  pmdi.stats$mean[i] <- mu
-  pmdi.stats$sd[i] <- sig
-  
-  data[[paste0(v, "_sc")]] <-
-    (data[[v]] - mu) / sig #scaled and centered calculation
-}
-
-#now create list for pmdi matrices that are scaled and centered
-pmdi.vars <- c(
-  "pmdi_annual_sc",
-  "pmdi_spring_sc",
-  "pmdi_summer_sc",
-  "pmdi_fall_sc",
-  "pmdi_winter_sc"
-)
-
-pmdi.list <- list()
-
-for(v in pmdi.vars){
-  
-  tmp <- pivot_wider(
-    data,
-    names_from = cap_year,
-    values_from = all_of(v),
-    id_cols = animal_id
-  )
-  
-  tmp <- as.matrix(tmp[,-1])
-  
-  pmdi.list[[v]] <- tmp
-  
-}
-
-
-# create vector with last occasion for each individual, marked by 2, 15 for end of study
-# rework h to only include capture myopathy or harvest, do not censor natural mortality
-get.last<- function(x) min(which(x>1))
-h <- apply(known.fate,1,get.last)
-h <- replace(h, is.infinite(h), 15) #change to equal number of columns/years
-h
-
-#Function for latent state
-z.init <- matrix(NA, nrow = nrow(ch), ncol = ncol(ch))
-
-for(i in 1:dim(z.init)[1]){
-  z.init[i, f[i]:h[i]] <- 1
-  z.init[i,f[i]] <- NA
-}
+    pmdi.vars <- c(     #create list of pmdi variables
+      "pmdi_annual",
+      "pmdi_spring",
+      "pmdi_summer",
+      "pmdi_fall",
+      "pmdi_winter"
+    )
+    
+    pmdi.stats <- data.frame(   #create dataframe to store means and SD of pmdi variables
+      variable = pmdi.vars,
+      mean = NA,
+      sd = NA
+    )
+    
+    for(i in seq_along(pmdi.vars)){ #for loop to scale and center pmdi values and create new SC columns
+      
+      v <- pmdi.vars[i]
+      
+      mu <- mean(data[[v]], na.rm = TRUE)
+      sig <- sd(data[[v]], na.rm = TRUE)
+      
+      pmdi.stats$mean[i] <- mu
+      pmdi.stats$sd[i] <- sig
+      
+      data[[paste0(v, "_sc")]] <-
+        (data[[v]] - mu) / sig #scaled and centered calculation
+    }
+    
+    #now create list for pmdi matrices that are scaled and centered
+    pmdi.vars <- c(
+      "pmdi_annual_sc",
+      "pmdi_spring_sc",
+      "pmdi_summer_sc",
+      "pmdi_fall_sc",
+      "pmdi_winter_sc"
+    )
+    
+    pmdi.list <- list()
+    
+    for(v in pmdi.vars){
+      
+      tmp <- pivot_wider(
+        data,
+        names_from = cap_year,
+        values_from = all_of(v),
+        id_cols = animal_id
+      )
+      
+      tmp <- as.matrix(tmp[,-1])
+      
+      pmdi.list[[v]] <- tmp
+      
+    }
 
 
 #Add density data
@@ -197,7 +236,7 @@ for (i in 1:nind){
    # Define latent state at first capture, we know for sure the animal is alive
       z[i,f[i]] <- 1
 
-      for (t in (f[i]+1):h[i]){
+      for (t in (f[i]+1):16){
         # State process
             z[i,t] ~ dbern(mu1[i,t])
             mu1[i,t] <- phi[i,t-1] * z[i,t-1]
@@ -224,60 +263,33 @@ for (i in 1:nind){
 sink()
 
 
-# 
-# #bundle data
-# jags.data <- list(
-#   h = h,
-#   ch = ch,
-#   f = f,
-#   nind = nrow(ch),
-#   age = age.raw,
-#   age.old = age.old.list$knot_5
-# )
-# 
-# # Call JAGS from R 
-# mod5 <- jagsUI(
-#   jags.data,
-#   inits,
-#   parameters,
-#   "model.jags",
-#   n.chains = nc,
-#   n.thin = nt,
-#   n.iter = ni,
-#   n.burnin = nb,
-#   parallel = TRUE
-# )
-# 
-# print(mod5)
-# MCMCtrace(mod5)
-# 
-# 
-# #bundle data
-# jags.data <- list(
-#   h = h,
-#   ch = ch,
-#   f = f,
-#   nind = nrow(ch),
-#   age = age.raw,
-#   age.old = age.old.list$knot_6
-# )
-# 
-# # Call JAGS from R 
-# mod6 <- jagsUI(
-#   jags.data,
-#   inits,
-#   parameters,
-#   "model.jags",
-#   n.chains = nc,
-#   n.thin = nt,
-#   n.iter = ni,
-#   n.burnin = nb,
-#   parallel = TRUE
-# )
-# 
-# print(mod6)
-# MCMCtrace(mod6)
-# 
+
+#bundle data
+jags.data <- list(
+  #h = h,
+  ch = ch,
+  f = f,
+  nind = nrow(ch),
+  age = age.raw,
+  age.old = age.old.list$knot_6
+)
+
+# Call JAGS from R
+mod6 <- jagsUI(
+  jags.data,
+  inits,
+  parameters,
+  "model.jags",
+  n.chains = nc,
+  n.thin = nt,
+  n.iter = ni,
+  n.burnin = nb,
+  parallel = TRUE
+)
+
+print(mod6)
+MCMCtrace(mod6)
+#
 # 
 # 
 # #bundle data
@@ -290,7 +302,7 @@ sink()
 #       age.old = age.old.list$knot_7
 #     )
 # 
-# # Call JAGS from R 
+# # Call JAGS from R
 #     mod7 <- jagsUI(
 #       jags.data,
 #       inits,
@@ -306,7 +318,7 @@ sink()
 #     print(mod7)
 #     MCMCtrace(mod7)
 # 
-#     
+# 
 # #bundle data
 #     jags.data <- list(
 #       h = h,
@@ -316,8 +328,8 @@ sink()
 #       age = age.raw,
 #       age.old = age.old.list$knot_8
 #     )
-#     
-# # Call JAGS from R 
+# 
+# # Call JAGS from R
 #     mod8 <- jagsUI(
 #       jags.data,
 #       inits,
@@ -329,11 +341,11 @@ sink()
 #       n.burnin = nb,
 #       parallel = TRUE
 #     )
-#     
+# 
 #     print(mod8)
 #     MCMCtrace(mod8)
 # 
-#     
+# 
 # #bundle data
 #     jags.data <- list(
 #       h = h,
@@ -343,8 +355,8 @@ sink()
 #       age = age.raw,
 #       age.old = age.old.list$knot_9
 #     )
-#     
-# # Call JAGS from R 
+# 
+# # Call JAGS from R
 #     mod9 <- jagsUI(
 #       jags.data,
 #       inits,
@@ -356,12 +368,12 @@ sink()
 #       n.burnin = nb,
 #       parallel = TRUE
 #     )
-#     
+# 
 #     print(mod9)
 #     MCMCtrace(mod9)
-#   
-#     
-# #Knot 10     
+
+# 
+# #Knot 10
 # #bundle data
 #     jags.data <- list(
 #       h = h,
@@ -371,8 +383,8 @@ sink()
 #       age = age.raw,
 #       age.old = age.old.list$knot_10
 #     )
-#     
-# # Call JAGS from R 
+# 
+# # Call JAGS from R
 #     mod10 <- jagsUI(
 #       jags.data,
 #       inits,
@@ -384,52 +396,78 @@ sink()
 #       n.burnin = nb,
 #       parallel = TRUE
 #     )
-#     
+# 
 #     print(mod10)
 #     MCMCtrace(mod10)
-# #     
-#knot 11
-#bundle data
-    jags.data <- list(
-      h = h,
-      ch = ch,
-      f = f,
-      nind = nrow(ch),
-      age = age.raw,
-      age.old = age.old.list$knot_11
-    )
+#
+# #knot 11
+# #bundle data
+#     jags.data <- list(
+#       h = h,
+#       ch = ch,
+#       f = f,
+#       nind = nrow(ch),
+#       age = age.raw,
+#       age.old = age.old.list$knot_11
+#     )
+# 
+# # Call JAGS from R
+#     mod11 <- jagsUI(
+#       jags.data,
+#       inits,
+#       parameters,
+#       "model.jags",
+#       n.chains = nc,
+#       n.thin = nt,
+#       n.iter = ni,
+#       n.burnin = nb,
+#       parallel = TRUE
+#     )
+# 
+#     print(mod11)
+#     MCMCtrace(mod11)
 
-# Call JAGS from R
-    mod11 <- jagsUI(
-      jags.data,
-      inits,
-      parameters,
-      "model.jags",
-      n.chains = nc,
-      n.thin = nt,
-      n.iter = ni,
-      n.burnin = nb,
-      parallel = TRUE
-    )
-
-    print(mod11)
-    MCMCtrace(mod11)
-
-    
+  #knot 12
+  #bundle data
+  jags.data <- list(
+    h = h,
+    ch = ch,
+    f = f,
+    nind = nrow(ch),
+    age = age.raw,
+    age.old = age.old.list$knot_12
+  )
+  
+  # Call JAGS from R
+  mod12 <- jagsUI(
+    jags.data,
+    inits,
+    parameters,
+    "model.jags",
+    n.chains = nc,
+    n.thin = nt,
+    n.iter = ni,
+    n.burnin = nb,
+    parallel = TRUE
+  )
+  
+  print(mod12)
+  MCMCtrace(mod12) 
     
 #store models for different knot points
 mods <- list(
-  mod5 = mod5,
+  
   mod6 = mod6,
   mod7 = mod7,
   mod8 = mod8,
   mod9 = mod9,
   mod10 = mod10,
-  mod11 = mod11
+  mod11 = mod11,
+  mod12 = mod12
 )
 
 dic.df <- data.frame(
-  knot = 5:11,
+  knot = 6:12,
   pD = sapply(mods, function(x) x$pD),
   Deviance = sapply(mods, function(x) x$mean$deviance),
   DIC = sapply(mods, function(x) x$DIC)
@@ -1911,6 +1949,12 @@ print(mod)
 
 # ---- Top Model: age + age.old + density---- 
 
+
+#keep simulated age.old to 6 
+age.old <- age.old.list$knot_6
+age.old.sim <- pmax(age.sim - 6, 0) #knot point of 9 from previous model selection
+
+
 # Specify model in JAGS language
 set.seed(100)
 sink("model2.jags")
@@ -2012,7 +2056,7 @@ jags.data <- list(
   f = f,
   nind = nrow(ch),
   age = age.raw,
-  age.old = age.old,   # age.old for knot = 9
+  age.old = age.old,   # age.old for knot = 6
   age.sim = age.sim,
   age.old.sim = age.old.sim,
   density = density.sc
@@ -2039,17 +2083,22 @@ write.csv(model_top$summary, './output/topmodelagedens.csv')
 gather <- model_top %>%
   spread_draws(phi.age[age])
 
+gather$ageclass <- as.factor(gather$age - 0.5)
+
+
 
 
 phi.plot<- gather %>%
-  ggplot(aes(x=age, y=phi.age)) +
+  ggplot(aes(x= ageclass, y=phi.age)) +
   stat_lineribbon(.width = 0.95)+
-  geom_vline(xintercept = 6, linetype = "dashed", color = "red", linewidth = 1)+
+  geom_vline(xintercept = 9, linetype = "dashed", color = "red", linewidth = 1)+
+  geom_vline(xintercept = 10, linetype = "dashed", color = "red", linewidth = 1)+
+  
   guides(fill = "none")+ #remove legend from ribbon
   scale_fill_viridis_d(option = 'turbo', alpha = .2 ) + #this allowed me to opacify the ribbon but not the line
   scale_color_viridis_d(option = 'turbo')+ #color of line but no opacification
   labs(x = "Age", y = "Annual Survival Probability", title = "")+
-  scale_x_continuous(breaks = c(1, 3, 5, 7, 9, 11, 13)) +
+  scale_x_discrete(breaks = c(.5, 2.5, 4.5, 6.5, 8.5, 10.5, 12.5)) +
   theme_bw() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.border = element_blank(),
@@ -2064,9 +2113,12 @@ phi.plot<- gather %>%
         axis.text = element_text(face='bold',size = 16),
         # axis.text.x = element_text(angle = 45, hjust = 1),
         panel.background = element_rect(fill='transparent'), #transparent panel bg
-        plot.background = element_rect(fill='transparent', color=NA)) #transparent plot bg)
+        plot.background = element_rect(fill='transparent', color=NA),
+        axis.text.x = element_text(
+          angle = -45,
+          hjust = 0)) #transparent plot bg)
 phi.plot
-ggsave('./figures/topmodelplot.png', phi.plot)
+ggsave('./figures/topmodelplot8to9.png', phi.plot)
 
 
 # ---- summary stats ----
